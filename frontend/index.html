@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OneDrive Sync</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+  <!-- ============================ HEADER ============================ -->
+  <header class="app-header">
+    <h1 class="app-title">ONEDRIVE<span class="app-title__slash">/</span>SYNC</h1>
+    <div class="connection" id="connection-badge" data-connected="false">
+      <span class="connection__dot" aria-hidden="true"></span>
+      <span id="connection-text">CONNECTING...</span>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- ======================= 01 / SYSTEM STATE ======================= -->
+    <!-- The big banner. Its data-state attribute drives colour and animation. -->
+    <section class="panel status-panel" id="status-panel" data-state="offline" aria-live="polite">
+      <p class="panel__label">01 / SYSTEM STATE</p>
+
+      <div class="status-panel__headline">
+        <span class="status-panel__glyph" id="state-glyph" aria-hidden="true">?</span>
+        <h2 class="status-panel__word" id="state-word">CONNECTING</h2>
+      </div>
+      <p class="status-panel__description" id="state-description">Waiting for the backend...</p>
+
+      <div class="activity-bar" id="activity-bar" aria-hidden="true"></div>
+
+      <p class="notice" id="resync-notice" hidden>
+        <strong>ACTION NEEDED:</strong> rclone has no baseline for two-way sync yet.
+        Use <em>FIRST-TIME SETUP</em> below, then start the sync again.
+      </p>
+      <p class="notice notice--warning" id="rclone-notice" hidden>
+        <strong>RCLONE NOT FOUND:</strong> install rclone or add it to your PATH, then reload this page.
+      </p>
+
+      <dl class="facts">
+        <div class="facts__item"><dt>MODE</dt><dd id="fact-mode">-</dd></div>
+        <div class="facts__item"><dt>STARTED</dt><dd id="fact-started">-</dd></div>
+        <div class="facts__item"><dt>DURATION</dt><dd id="fact-duration">-</dd></div>
+        <div class="facts__item"><dt>EXIT CODE</dt><dd id="fact-exit">-</dd></div>
+      </dl>
+    </section>
+
+    <!-- ============================ 02 / RUN ============================ -->
+    <section class="panel controls-panel">
+      <p class="panel__label">02 / RUN</p>
+
+      <fieldset class="mode-picker">
+        <legend class="visually-hidden">Sync mode</legend>
+
+        <label class="mode-card">
+          <input type="radio" name="sync-mode" value="bisync" checked>
+          <span class="mode-card__body">
+            <span class="mode-card__title">TWO-WAY SYNC</span>
+            <span class="mode-card__text">
+              Changes on both sides are merged. On a conflict, OneDrive wins and
+              your local version is kept with a number added to its name.
+            </span>
+          </span>
+        </label>
+
+        <label class="mode-card">
+          <input type="radio" name="sync-mode" value="download">
+          <span class="mode-card__body">
+            <span class="mode-card__title">DOWNLOAD ONLY</span>
+            <span class="mode-card__text">
+              Makes this PC match OneDrive. Nothing is uploaded. Files that exist
+              only on this PC are deleted (at most 25 per run).
+            </span>
+          </span>
+        </label>
+      </fieldset>
+
+      <label class="check">
+        <input type="checkbox" id="dry-run">
+        <span><strong>DRY RUN</strong> - only show what would happen, change nothing</span>
+      </label>
+
+      <div class="button-row">
+        <button type="button" class="btn btn--primary" id="start-button">START SYNC</button>
+        <button type="button" class="btn btn--danger" id="stop-button" disabled>STOP</button>
+      </div>
+
+      <details class="first-run">
+        <summary>FIRST TIME USING TWO-WAY SYNC?</summary>
+        <p>
+          rclone needs a starting point before it can sync in both directions.
+          This step creates a small <code>RCLONE_TEST</code> file on both sides
+          (a safety check) and builds that starting point. OneDrive wins.
+          You only need to do this once, or when rclone asks for it.
+        </p>
+        <button type="button" class="btn" id="resync-button">RUN FIRST-TIME SETUP</button>
+      </details>
+
+      <p class="form-message" id="control-message" role="status"></p>
+    </section>
+
+    <!-- ========================= 03 / SETTINGS ========================= -->
+    <section class="panel settings-panel">
+      <p class="panel__label">03 / SETTINGS</p>
+
+      <form id="settings-form" novalidate>
+        <label class="field">
+          <span class="field__label">LOCAL FOLDER</span>
+          <input class="field__input" type="text" id="setting-local-path"
+                 placeholder="C:\Users\you\OneDrive  or  /home/you/OneDrive" autocomplete="off">
+          <span class="field__hint">Full path of the folder on this PC.</span>
+        </label>
+
+        <label class="field">
+          <span class="field__label">ONEDRIVE REMOTE</span>
+          <input class="field__input" type="text" id="setting-remote"
+                 placeholder="onedrive:" autocomplete="off">
+          <span class="field__hint">Remote name from <code>rclone config</code>, optionally with a folder: <code>onedrive:Documents</code>.</span>
+        </label>
+
+        <label class="field">
+          <span class="field__label">MAX FILE SIZE</span>
+          <input class="field__input field__input--short" type="text" id="setting-max-size"
+                 placeholder="50M" autocomplete="off">
+          <span class="field__hint">Bigger files are skipped. Examples: <code>500k</code>, <code>50M</code>, <code>2G</code>, <code>off</code> (no limit).</span>
+        </label>
+
+        <div class="field">
+          <span class="field__label">DO NOT SYNC (EXCLUSIONS)</span>
+          <ul class="exclusion-list" id="exclusion-list"></ul>
+          <p class="exclusion-empty" id="exclusion-empty" hidden>Nothing excluded. Everything is synced.</p>
+
+          <div class="exclusion-add">
+            <input class="field__input" type="text" id="exclusion-input"
+                   placeholder="node_modules/   or   *.iso" autocomplete="off">
+            <button type="button" class="btn" id="exclusion-add-button">ADD</button>
+          </div>
+          <span class="field__hint">
+            <code>Folder/</code> a folder anywhere &middot;
+            <code>/Folder/</code> only at the top level &middot;
+            <code>*.iso</code> files by pattern &middot;
+            <code>Docs/secret.txt</code> one specific file.
+          </span>
+        </div>
+
+        <div class="button-row">
+          <button type="submit" class="btn btn--primary" id="save-button">SAVE SETTINGS</button>
+        </div>
+        <p class="form-message" id="settings-message" role="status"></p>
+        <p class="field__hint" id="settings-lock-note" hidden>Settings are locked while a sync is running.</p>
+      </form>
+    </section>
+
+    <!-- ============================ 04 / LOG ============================ -->
+    <section class="panel log-panel">
+      <div class="log-panel__header">
+        <p class="panel__label">04 / LIVE LOG</p>
+        <label class="check check--inline">
+          <input type="checkbox" id="log-autoscroll" checked>
+          <span>AUTO-SCROLL</span>
+        </label>
+        <button type="button" class="btn btn--small" id="log-clear-button">CLEAR VIEW</button>
+      </div>
+
+      <div class="log-output" id="log-output" role="log" aria-live="off" tabindex="0">
+        <p class="log-empty" id="log-empty">No log lines yet. Start a sync and everything rclone does will appear here.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ES modules: main.js imports all the other scripts. -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

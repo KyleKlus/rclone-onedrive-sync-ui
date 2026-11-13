@@ -1,0 +1,133 @@
+/* ==========================================================================
+   base.css
+   Design tokens, reset, typography and the page layout.
+   Look: brutalist (thick black borders, hard shadows, raw monospace type)
+   but kept modern through generous spacing and a clean grid.
+   Component styles live in components.css.
+   ========================================================================== */
+
+:root {
+  /* Colour */
+  --paper:  #f3f0e6;
+  --ink:    #0b0b0b;
+  --white:  #ffffff;
+  --grey:   #dcd8c9;
+  --yellow: #ffe500;
+  --blue:   #3355ff;
+  --green:  #1ed47a;
+  --red:    #ff3b2f;
+  --orange: #ff9a1f;
+
+  /* Brutalist building blocks */
+  --border:        3px solid var(--ink);
+  --border-thin:   2px solid var(--ink);
+  --shadow:        6px 6px 0 var(--ink);
+  --shadow-small:  3px 3px 0 var(--ink);
+
+  /* Type */
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+  --font-sans: "Helvetica Neue", Helvetica, Arial, "Segoe UI", sans-serif;
+
+  /* Spacing */
+  --gap: 1.5rem;
+  --pad: 1.25rem;
+}
+
+/* ---------- Reset ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+h1, h2, p, dl, dd, ul, fieldset { margin: 0; padding: 0; }
+ul { list-style: none; }
+fieldset { border: 0; min-width: 0; }
+button, input { font: inherit; color: inherit; }
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--grey);
+  padding: 0.05em 0.35em;
+}
+
+/* Visible, high-contrast keyboard focus everywhere. */
+:focus-visible {
+  outline: 4px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Page header ---------- */
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem var(--gap);
+  background: var(--ink);
+  color: var(--paper);
+  border-bottom: var(--border);
+}
+
+.app-title {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.app-title__slash { color: var(--yellow); }
+
+/* ---------- Page layout ----------
+   Wide screens:  status on top, controls + settings on the left, log on the right.
+   Narrow screens: everything stacked in reading order. */
+
+.layout {
+  display: grid;
+  gap: var(--gap);
+  padding: var(--gap);
+  max-width: 1400px;
+  margin: 0 auto;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1000px) {
+  .layout {
+    grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr);
+    grid-template-areas:
+      "status   status"
+      "controls log"
+      "settings log";
+    align-items: start;
+  }
+
+  .status-panel   { grid-area: status; }
+  .controls-panel { grid-area: controls; }
+  .settings-panel { grid-area: settings; }
+
+  /* The log stays in view while the left column scrolls. */
+  .log-panel {
+    grid-area: log;
+    position: sticky;
+    top: var(--gap);
+    height: calc(100vh - 2 * var(--gap));
+  }
+}

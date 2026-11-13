@@ -1,0 +1,99 @@
+# OneDrive Sync
+
+A small local web app that syncs a folder on this PC with OneDrive using the
+`rclone` you already have installed. Python backend, plain HTML/CSS/JS frontend,
+no dependencies beyond the Python standard library.
+
+## Quick start
+
+```
+python run.py --open
+```
+
+Then in the browser (default address `http://127.0.0.1:8765`):
+
+1. **03 / SETTINGS**: enter your local folder and your rclone remote
+   (e.g. `onedrive:`), then *SAVE SETTINGS*.
+2. **Two-way sync, first time only**: open *FIRST TIME USING TWO-WAY SYNC?* and
+   press *RUN FIRST-TIME SETUP*. This places a `RCLONE_TEST` file on both sides
+   (needed by `--check-access`) and builds the initial baseline.
+3. From then on, press *START SYNC*.
+
+Requires Python 3.9+ and rclone 1.66+ (for `--compare` and `--conflict-resolve`).
+
+## Modes
+
+| Mode | rclone command | Behaviour |
+|------|----------------|-----------|
+| Two-way sync | `rclone bisync <local> <remote>` | Changes on both sides are merged. **OneDrive wins conflicts** (`--conflict-resolve path2`); the losing local copy is kept with a number suffix. |
+| Download only | `rclone sync <remote> <local>` | This PC is made to match OneDrive. Local-only files are deleted (max 25 per run). |
+
+Use **DRY RUN** to preview what a run would do without changing anything.
+
+## Exclusions and max file size
+
+Both are set in the UI and saved to `data/settings.json`. Exclusions are written
+to `data/filters.txt` before every run and passed via `--filters-file`.
+
+| Pattern | Meaning |
+|---------|---------|
+| `Folder/` | a folder with that name, anywhere |
+| `/Folder/` | only the top-level folder |
+| `*.iso` | files matching a pattern |
+| `Docs/secret.txt` | one specific file |
+
+> `bisync` remembers its filters. If you change the exclusions, rclone may ask
+> for a first-time setup (resync) on the next two-way run. The UI tells you
+> when that happens.
+
+## Security: localhost only
+
+Three independent checks (see `backend/security.py`):
+
+1. The server only binds to `127.0.0.1`, and each request's client address must be loopback.
+2. The `Host` header must be `localhost` / `127.0.0.1` (blocks DNS-rebinding).
+3. An `Origin` header, if present, must be this exact server (blocks other websites and other local apps from sending commands).
+
+## Project layout
+
+```
+run.py                     entry point
+backend/
+  config.py                fixed settings + the BISYNC_FLAGS / DOWNLOAD_FLAGS lists
+  errors.py  models.py     exceptions, enums, log entry type
+  settings.py              user settings + validation
+  settings_store.py        load/save settings.json
+  log_buffer.py            thread-safe in-memory log
+  rclone_command.py        builds rclone command lines (no execution)
+  rclone_runner.py         runs rclone, streams output, can cancel
+  sync_manager.py          state machine: idle -> running -> done/failed/stopped
+  security.py              localhost guard
+  api.py                   /api/* endpoints (no HTTP details)
+  http_server.py           HTTP plumbing + static files
+  app.py                   wires all of the above together
+frontend/
+  index.html               structure only
+  css/base.css             design tokens, reset, page layout
+  css/components.css       one section per component
+  js/api.js                the only file that talks to the backend
+  js/status_view.js  controls_view.js  settings_view.js  log_view.js
+  js/main.js               wires views to the API, polling loop
+tests/                     end-to-end tests with a fake rclone
+data/                      created at runtime (settings, filter file)
+```
+
+## Where to change things
+
+| I want to... | Edit |
+|--------------|------|
+| change rclone flags | `backend/config.py` |
+| change how commands are assembled | `backend/rclone_command.py` |
+| add a setting | `settings.py` (+ the field in `index.html` and `settings_view.js`) |
+| restyle the UI | `frontend/css/` |
+| add an API endpoint | `api.py` (+ a method in `frontend/js/api.js`) |
+
+## Tests
+
+```
+python -m unittest discover -s tests -v
+```
