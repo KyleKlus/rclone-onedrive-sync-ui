@@ -6,18 +6,18 @@
 
 /** What to show for each state the backend can report (plus "offline"). */
 const STATE_DISPLAY = {
-  idle:      { word: "IDLE",         glyph: "-" },
-  running:   { word: "SYNCING",      glyph: ">" },
-  stopping:  { word: "STOPPING",     glyph: "~" },
-  succeeded: { word: "DONE",         glyph: "OK" },
-  failed:    { word: "FAILED",       glyph: "!" },
-  cancelled: { word: "STOPPED",      glyph: "X" },
-  offline:   { word: "BACKEND OFFLINE", glyph: "?" },
+  idle:      { word: "Idle",         glyph: "-" },
+  running:   { word: "Syncing",      glyph: ">" },
+  stopping:  { word: "Stopping",     glyph: "~" },
+  succeeded: { word: "Done",         glyph: "OK" },
+  failed:    { word: "Failed",       glyph: "!" },
+  cancelled: { word: "Stopped",      glyph: "X" },
+  offline:   { word: "Backend offline", glyph: "?" },
 };
 
 const MODE_LABELS = {
-  bisync: "TWO-WAY",
-  download: "DOWNLOAD ONLY",
+  bisync: "Two-way",
+  download: "Download only",
 };
 
 export class StatusView {
@@ -75,14 +75,14 @@ export class StatusView {
 
   #setConnected(isConnected) {
     this.connectionBadge.dataset.connected = String(isConnected);
-    this.connectionText.textContent = isConnected ? "BACKEND CONNECTED" : "BACKEND OFFLINE";
+    this.connectionText.textContent = isConnected ? "Backend connected" : "Backend offline";
   }
 
   #describeMode(status) {
     if (!status.mode) return "-";
     let label = MODE_LABELS[status.mode] ?? status.mode.toUpperCase();
-    if (status.resync) label += " (FIRST-TIME SETUP)";
-    if (status.dry_run) label += " [DRY RUN]";
+    if (status.resync) label += " (first-time setup)";
+    if (status.dry_run) label += " [dry run]";
     return label;
   }
 

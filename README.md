@@ -54,6 +54,20 @@ Three independent checks (see `backend/security.py`):
 2. The `Host` header must be `localhost` / `127.0.0.1` (blocks DNS-rebinding).
 3. An `Origin` header, if present, must be this exact server (blocks other websites and other local apps from sending commands).
 
+## Design
+
+The UI follows the look of kyleklus.de/printable-calendar-generator: Itim font,
+soft gradient background with a noise texture, rounded cards and tactile 3D
+buttons that sink when hovered and pressed.
+
+- All colours derive from one number, `--hue`, in `frontend/css/base.css`
+  (132 = green; try 210 for blue). Any element can override it, e.g. `.btn--danger`.
+- Buttons, inputs, switches and mode cards share one rule in `components.css`.
+  States only change `--lift`, so adding a new 3D element means adding its selector there.
+- The Itim font is loaded from the jsDelivr CDN (the only external resource, allowed
+  in the Content-Security-Policy in `backend/http_server.py`). Offline, the UI falls
+  back to the system "cursive" font. The log always uses a monospace font.
+
 ## Project layout
 
 ```
@@ -73,8 +87,9 @@ backend/
   app.py                   wires all of the above together
 frontend/
   index.html               structure only
-  css/base.css             design tokens, reset, page layout
+  css/base.css             design tokens (--hue ...), reset, page layout
   css/components.css       one section per component
+  img/noise.svg            background texture
   js/api.js                the only file that talks to the backend
   js/status_view.js  controls_view.js  settings_view.js  log_view.js
   js/main.js               wires views to the API, polling loop

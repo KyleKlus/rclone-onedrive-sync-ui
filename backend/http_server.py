@@ -21,8 +21,13 @@ mimetypes.add_type("text/css", ".css")
 
 _MAX_BODY_BYTES = 64 * 1024
 
-# The page only loads its own files; nothing from the internet.
-_CONTENT_SECURITY_POLICY = "default-src 'self'; frame-ancestors 'none'"
+# The page only loads its own files, except the Itim font (CSS + font files)
+# from the jsDelivr CDN. Scripts can only come from this server.
+_FONT_CDN = "https://cdn.jsdelivr.net"
+_CONTENT_SECURITY_POLICY = (
+    f"default-src 'self'; style-src 'self' {_FONT_CDN}; "
+    f"font-src 'self' {_FONT_CDN}; frame-ancestors 'none'"
+)
 
 
 @dataclass(frozen=True)

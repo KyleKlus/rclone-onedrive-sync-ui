@@ -18,6 +18,7 @@ export class ControlsView {
     this.modePicker = document.querySelector(".mode-picker");
     this.dryRun = document.getElementById("dry-run");
     this.startButton = document.getElementById("start-button");
+    this.startLabel = document.getElementById("start-label");
     this.stopButton = document.getElementById("stop-button");
     this.resyncButton = document.getElementById("resync-button");
     this.message = document.getElementById("control-message");
@@ -42,7 +43,7 @@ export class ControlsView {
     this.modePicker.disabled = isBusy;
     this.modeInputs.forEach((input) => { input.disabled = isBusy; });
 
-    this.startButton.textContent = isBusy ? "SYNC IN PROGRESS..." : "START SYNC";
+    this.startLabel.textContent = isBusy ? "Sync in progress ..." : "Start sync";
   }
 
   /** Show a short message under the buttons (e.g. why a start was refused). */

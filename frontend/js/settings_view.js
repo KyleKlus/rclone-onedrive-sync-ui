@@ -84,7 +84,7 @@ export class SettingsView {
     if (!this.exclusions.includes(pattern)) {
       this.exclusions.push(pattern);
       this.#renderExclusions();
-      this.showMessage("Exclusion added. Click SAVE SETTINGS to keep it.", "success");
+      this.showMessage("Exclusion added. Click Save settings to keep it.", "success");
     }
     this.exclusionInput.value = "";
     this.exclusionInput.focus();
@@ -93,7 +93,7 @@ export class SettingsView {
   #removeExclusion(pattern) {
     this.exclusions = this.exclusions.filter((existing) => existing !== pattern);
     this.#renderExclusions();
-    this.showMessage("Exclusion removed. Click SAVE SETTINGS to keep it.", "success");
+    this.showMessage("Exclusion removed. Click Save settings to keep it.", "success");
   }
 
   #renderExclusions() {
@@ -111,7 +111,7 @@ export class SettingsView {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "exclusion-item__remove";
-      remove.textContent = "X";
+      remove.textContent = "\u00d7";
       remove.title = `Remove ${pattern}`;
       remove.setAttribute("aria-label", `Remove exclusion ${pattern}`);
       remove.disabled = this.isLocked;

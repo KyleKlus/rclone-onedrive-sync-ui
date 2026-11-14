@@ -1,60 +1,285 @@
 /* ==========================================================================
    components.css
-   One section per UI component. Colours and sizes come from base.css.
+   Sections: 1 Tactile surfaces (the shared 3D effect)   2 Buttons
+             3 Inputs and switches   4 Panels (cards)   5 Status banner
+             6 Mode picker   7 Settings   8 Live log
+   Colours and sizes come from the tokens in base.css.
    ========================================================================== */
 
 
-/* ---------- Panel (the basic box) ---------- */
+/* ==========================================================================
+   1. TACTILE SURFACES
+   Buttons, inputs, switches and mode cards share ONE recipe:
+
+     --rest   how tall the surface looks when nothing happens
+     --lift   how tall it looks RIGHT NOW (this is the only thing states change)
+
+   The "side" of the 3D block is a hard shadow `--lift` pixels tall. The
+   element is moved by (rest - lift) so its top surface moves while the
+   bottom edge stays put: lift < rest looks like pressing it down.
+   ========================================================================== */
+
+.btn,
+.field__input,
+.switch,
+.mode-card__body {
+  --rest: var(--rest-height);
+  --lift: var(--rest);
+  --surface: hsl(var(--hue), 81%, 69%);
+  --side: hsl(var(--hue), 36%, 47%);
+
+  background-color: var(--surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius);
+  corner-shape: squircle;
+  transform: translateY(calc(var(--rest) - var(--lift)));
+  box-shadow:
+    0 var(--lift) 0 var(--side),
+    0 calc(2 * var(--lift) - 1px) calc(2 * var(--lift) + 2px) var(--shadow-color);
+  transition:
+    transform var(--duration) var(--ease),
+    box-shadow var(--duration) var(--ease),
+    background-color var(--duration) var(--ease);
+}
+
+/* One focus ring for everything keyboard-reachable. */
+:is(.btn, .field__input, .switch:has(input), .mode-card:has(input)):focus-visible,
+.switch:has(input:focus-visible),
+.mode-card:has(input:focus-visible) .mode-card__body {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 3px;
+}
+
+
+/* ==========================================================================
+   2. BUTTONS
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  padding: 0.25rem 0.75rem;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--font-size);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hover sinks the button halfway, pressing sinks it almost flat. */
+.btn:hover:not(:disabled)  { --lift: calc(var(--rest) / 2); }
+.btn:active:not(:disabled) { --lift: 1px; }
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  filter: grayscale(0.5);
+}
+
+/* Icons sit before the label and scale with the font. */
+.btn > svg {
+  flex: none;
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+/* Variants only change the hue. */
+.btn--danger { --hue: 4; }
+.btn--plain  { --surface: hsl(var(--hue), 40%, 95%); --side: hsl(var(--hue), 10%, 47%); }
+.btn--small  { padding: 0.1rem 0.6rem; font-size: 0.9rem; --rest: 3px; }
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  padding-bottom: 0.4rem;   /* room for the buttons' 3D shadow */
+}
+
+
+/* ==========================================================================
+   3. INPUTS AND SWITCHES
+   ========================================================================== */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+}
+
+.field__label {
+  color: var(--heading);
+  font-size: 1.15rem;
+  user-select: none;
+}
+
+.field__hint {
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: #3d4a3f;
+}
+
+.field__input {
+  --rest: 2px;
+  --surface: hsl(var(--hue), 40%, 95%);
+  --side: hsl(var(--hue), 10%, 47%);
+  width: 100%;
+  padding: 0.35rem 0.7rem;
+  font-size: var(--font-size);
+  cursor: text;
+}
+
+/* Inputs rise slightly on hover/focus (buttons sink; inputs are "pulled up"). */
+.field__input:is(:hover, :focus):not(:disabled) {
+  --lift: calc(var(--rest) * 1.5);
+  --surface: hsl(var(--hue), 84%, 90%);
+}
+
+.field__input:focus-visible { outline: none; }   /* the lift + colour is the focus cue */
+.field__input:disabled { cursor: not-allowed; opacity: 0.7; filter: grayscale(0.5); }
+.field__input--short { max-width: 9rem; }
+
+/* ---- Switch (pill toggle) ----
+   The real checkbox stays in the DOM (hidden visually, not with display:none)
+   so keyboards and screen readers keep working. */
+
+.switch {
+  --rest: 2px;
+  --width: 44px;
+  --height: 1.2rem;
+  --padding: 2px;
+  --slider-size: calc(var(--height) - 2 * var(--padding));
+  --surface: hsl(var(--hue), 40%, 40%);      /* track when OFF  */
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: var(--width);
+  height: var(--height);
+  border-radius: var(--height);
+  cursor: pointer;
+}
+
+.switch:has(input:checked) { --surface: hsl(var(--hue), 81%, 69%); }   /* track when ON */
+.switch:is(:hover, :focus-within):not(:has(input:disabled)) { --lift: calc(var(--rest) * 1.5); }
+.switch:has(input:disabled) { cursor: not-allowed; opacity: 0.6; }
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: inherit;
+}
+
+.switch .slider {
+  position: absolute;
+  top: calc(50% - var(--slider-size) / 2);
+  left: var(--padding);
+  width: var(--slider-size);
+  height: var(--slider-size);
+  border-radius: 50%;
+  background-color: hsl(var(--hue), 81%, 69%);
+  transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+.switch:has(input:checked) .slider {
+  background-color: hsl(var(--hue), 40%, 40%);
+  transform: translateX(calc(var(--width) - 2 * var(--padding) - var(--slider-size) - 2 * var(--border-width)));
+}
+
+/* A switch followed by its text. */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.toggle-row--inline { gap: 0.5rem; font-size: 0.95rem; }
+
+
+/* ==========================================================================
+   4. PANELS (cards)
+   ========================================================================== */
 
 .panel {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: var(--pad);
-  background: var(--white);
-  border: var(--border);
-  box-shadow: var(--shadow);
+  padding: 1.5rem 2rem 1.75rem;
+  color: var(--ink);
+  background: var(--card-bg);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: var(--card-radius);
+  corner-shape: squircle;
+  box-shadow:
+    -1px 2px 0 var(--card-shadow-color),
+    -1px 7px 10px rgba(0, 0, 0, 0.22);
 }
 
 .panel__label {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  color: var(--heading);
+  font-size: 1.5rem;
+  user-select: none;
 }
 
+@media (max-width: 600px) {
+  .panel { padding: 1.25rem 1.25rem 1.5rem; }
+}
 
-/* ---------- Connection badge (header) ---------- */
+/* Dashed divider, as on the original site. */
+.divider {
+  border: 1px dashed rgba(0, 0, 0, 0.22);
+  border-radius: 4px;
+  margin: 0.25rem 0;
+}
 
+/* Small status pill in the header. */
 .connection {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.35rem 0.8rem;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  background: var(--paper);
-  color: var(--ink);
-  border: var(--border-thin);
+  padding: 0.2rem 0.9rem;
+  background: var(--card-bg);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+  box-shadow: -1px 2px 0 var(--card-shadow-color);
+  user-select: none;
 }
 
 .connection__dot {
   width: 0.8rem;
   height: 0.8rem;
-  background: var(--orange);
-  border: 2px solid var(--ink);
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  background: #f2a33a;
 }
 
-.connection[data-connected="true"] .connection__dot { background: var(--green); }
-.connection[data-connected="false"] .connection__dot { background: var(--red); }
+.connection[data-connected="true"]  .connection__dot { background: #3fd37c; }
+.connection[data-connected="false"] .connection__dot { background: #ef4a3f; }
 
 
-/* ---------- Status panel (the big system-state banner) ----------
-   The state is NEVER shown by colour alone: it is also a big word and a glyph. */
+/* ==========================================================================
+   5. STATUS BANNER
+   The state is never shown by colour alone: it is also a big word and a glyph.
+   Each state only sets the card colour.
+   ========================================================================== */
 
-.status-panel { background: var(--white); }
+.status-panel[data-state="idle"]      { --card-bg: #e1eef1; }
+.status-panel[data-state="running"]   { --card-bg: hsl(50, 100%, 76%); }
+.status-panel[data-state="stopping"]  { --card-bg: hsl(30, 100%, 76%); }
+.status-panel[data-state="succeeded"] { --card-bg: hsl(132, 70%, 76%); }
+.status-panel[data-state="failed"]    { --card-bg: hsl(4, 90%, 79%); }
+.status-panel[data-state="cancelled"] { --card-bg: hsl(30, 100%, 76%); }
+.status-panel[data-state="offline"]   { --card-bg: #d4d6d6; }
+
+.status-panel { transition: background-color 0.3s ease; }
 
 .status-panel__headline {
   display: flex;
@@ -68,50 +293,35 @@
   place-items: center;
   width: 3.5rem;
   height: 3.5rem;
-  font-family: var(--font-mono);
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: 1.8rem;
+  color: #f3f0e6;
   background: var(--ink);
-  color: var(--paper);
+  border-radius: 16px;
+  corner-shape: squircle;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
 }
 
 .status-panel__word {
-  font-family: var(--font-mono);
-  font-size: clamp(2rem, 6vw, 3.5rem);
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  font-weight: 400;
   line-height: 1;
 }
 
 .status-panel__description {
-  font-size: 1.15rem;
-  font-weight: 600;
   max-width: 60ch;
+  font-size: 1.2rem;
 }
 
-/* One colour per state. */
-.status-panel[data-state="idle"]      { background: var(--paper); }
-.status-panel[data-state="running"]   { background: var(--yellow); }
-.status-panel[data-state="stopping"]  { background: var(--orange); }
-.status-panel[data-state="succeeded"] { background: var(--green); }
-.status-panel[data-state="failed"]    { background: var(--red); }
-.status-panel[data-state="cancelled"] { background: var(--orange); }
-.status-panel[data-state="offline"]   { background: var(--grey); }
-
-/* Activity bar: moving stripes while rclone is working, otherwise a flat line. */
+/* Activity bar: moving stripes while rclone is working, otherwise a flat track. */
 .activity-bar {
   height: 1.1rem;
-  border: var(--border-thin);
-  background: transparent;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
 }
 
-.status-panel[data-state="running"] .activity-bar,
-.status-panel[data-state="stopping"] .activity-bar {
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--ink) 0 14px,
-    transparent 14px 28px
-  );
+:is([data-state="running"], [data-state="stopping"]) > .activity-bar {
+  background: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.55) 0 14px, transparent 14px 28px);
   background-size: 40px 40px;
   animation: stripes 0.8s linear infinite;
 }
@@ -121,11 +331,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .status-panel[data-state="running"] .activity-bar,
-  .status-panel[data-state="stopping"] .activity-bar { animation: none; }
+  .activity-bar { animation: none !important; }
 }
 
-/* Facts row (mode, started, duration, exit code) */
 .facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
@@ -133,90 +341,38 @@
 }
 
 .facts__item {
-  padding: 0.5rem 0.75rem;
-  background: var(--white);
-  border: var(--border-thin);
+  padding: 0.4rem 0.9rem;
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  border-radius: 16px;
 }
 
-.facts dt {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
+.facts dt { font-size: 0.8rem; color: var(--heading); }
+.facts dd { font-size: 1.15rem; }
 
-.facts dd {
-  font-family: var(--font-mono);
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
-/* Notices (call-outs inside the status panel) */
 .notice {
-  padding: 0.75rem 1rem;
-  background: var(--white);
-  border: var(--border);
-  box-shadow: var(--shadow-small);
+  padding: 0.7rem 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 18px;
 }
 
-.notice[hidden] { display: none; }
-.notice--warning { background: var(--yellow); }
+.notice--warning { background: hsl(50, 100%, 80%); }
 
 
-/* ---------- Buttons ---------- */
-
-.btn {
-  padding: 0.7rem 1.2rem;
-  font-family: var(--font-mono);
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  background: var(--white);
-  border: var(--border);
-  box-shadow: var(--shadow-small);
-  cursor: pointer;
-  transition: transform 80ms, box-shadow 80ms;
-}
-
-.btn:hover:not(:disabled) { background: var(--yellow); }
-
-/* Pressed: the button sinks into its shadow. */
-.btn:active:not(:disabled) {
-  transform: translate(3px, 3px);
-  box-shadow: 0 0 0 var(--ink);
-}
-
-.btn--primary { background: var(--blue); color: var(--white); }
-.btn--primary:hover:not(:disabled) { background: var(--ink); }
-.btn--danger  { background: var(--red); }
-.btn--danger:hover:not(:disabled) { background: var(--ink); color: var(--white); }
-.btn--small   { padding: 0.35rem 0.7rem; font-size: 0.75rem; }
-
-.btn:disabled {
-  background: var(--grey);
-  color: #6b6b6b;
-  border-color: #6b6b6b;
-  box-shadow: none;
-  cursor: not-allowed;
-}
-
-.button-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-
-/* ---------- Mode picker (two big selectable cards) ---------- */
+/* ==========================================================================
+   6. MODE PICKER
+   Two selectable cards. The selected one looks pressed in and turns green.
+   ========================================================================== */
 
 .mode-picker {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.9rem;
 }
 
 .mode-card { display: block; cursor: pointer; }
 
-/* The real radio button is hidden; the card body shows the selection. */
+/* The radio button stays in the DOM for keyboards and screen readers. */
 .mode-card input {
   position: absolute;
   opacity: 0;
@@ -224,178 +380,116 @@
 }
 
 .mode-card__body {
+  --surface: hsl(var(--hue), 40%, 95%);
+  --side: hsl(var(--hue), 10%, 47%);
   display: block;
-  padding: 0.9rem 1rem;
-  background: var(--white);
-  border: var(--border);
+  padding: 0.7rem 1rem;
+  border-radius: 16px;
 }
 
 .mode-card__title {
   display: block;
-  font-family: var(--font-mono);
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-size: 1.25rem;
 }
 
-.mode-card__text { display: block; font-size: 0.92rem; }
+.mode-card__text {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
 
-.mode-card:hover .mode-card__body { background: var(--paper); }
+.mode-card:hover input:not(:disabled) + .mode-card__body { --lift: 3px; }
 
 .mode-card input:checked + .mode-card__body {
-  background: var(--yellow);
-  box-shadow: var(--shadow-small);
+  --surface: hsl(var(--hue), 81%, 69%);
+  --side: hsl(var(--hue), 36%, 47%);
+  --lift: 1px;
 }
 
-.mode-card input:checked + .mode-card__body .mode-card__title::before { content: "[X] "; }
-.mode-card input:not(:checked) + .mode-card__body .mode-card__title::before { content: "[ ] "; }
-.mode-card input:focus-visible + .mode-card__body { outline: 4px solid var(--blue); outline-offset: 2px; }
+/* Text marker so the selection is not conveyed by colour alone. */
+.mode-card__title::before { content: "\25CB\00a0"; }                                  /* empty circle */
+.mode-card input:checked + .mode-card__body .mode-card__title::before { content: "\25CF\00a0"; }  /* filled circle */
 
 .mode-picker:disabled .mode-card { cursor: not-allowed; opacity: 0.6; }
 
-
-/* ---------- Checkbox ---------- */
-
-.check {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  cursor: pointer;
-}
-
-.check input {
-  flex: none;
-  width: 1.3rem;
-  height: 1.3rem;
-  margin: 0.1rem 0 0;
-  accent-color: var(--ink);
-}
-
-.check--inline {
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-
-/* ---------- First-run helper (collapsible) ---------- */
-
 .first-run {
-  padding: 0.75rem 1rem;
-  background: var(--paper);
-  border: var(--border-thin);
+  padding: 0.6rem 1rem;
+  background: rgba(255, 255, 255, 0.45);
+  border: 2px dashed rgba(0, 0, 0, 0.25);
+  border-radius: 18px;
 }
 
-.first-run summary {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-}
-
-.first-run p { margin: 0.75rem 0; font-size: 0.92rem; }
-
-
-/* ---------- Form fields ---------- */
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 1.1rem;
-}
-
-.field__label {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-}
-
-.field__input {
-  width: 100%;
-  padding: 0.6rem 0.75rem;
-  font-family: var(--font-mono);
-  background: var(--white);
-  border: var(--border);
-}
-
-.field__input:focus { background: var(--yellow); }
-.field__input--short { max-width: 10rem; }
-.field__input:disabled { background: var(--grey); cursor: not-allowed; }
-
-.field__hint { font-size: 0.82rem; color: #3a3a3a; }
+.first-run summary { cursor: pointer; color: var(--heading); font-size: 1.1rem; }
+.first-run p { margin: 0.6rem 0; font-size: 0.95rem; }
+.first-run .btn { margin-bottom: 0.4rem; }
 
 .form-message {
   min-height: 1.4rem;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 1rem;
 }
 
-.form-message[data-kind="error"]   { color: #b00000; }
-.form-message[data-kind="success"] { color: #006b32; }
+.form-message[data-kind="error"]   { color: #a8201a; }
+.form-message[data-kind="success"] { color: var(--heading); }
 
 
-/* ---------- Exclusion list ---------- */
+/* ==========================================================================
+   7. SETTINGS: exclusion list
+   ========================================================================== */
 
 .exclusion-list {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .exclusion-item {
-  display: flex;
+  display: inline-flex;
   align-items: stretch;
-  border: var(--border-thin);
-  background: var(--paper);
+  max-width: 100%;
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+  overflow: hidden;
 }
 
 .exclusion-item__pattern {
-  flex: 1;
-  padding: 0.35rem 0.6rem;
+  padding: 0.15rem 0.7rem 0.15rem 0.9rem;
   font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  line-height: 1.7;
   overflow-wrap: anywhere;
 }
 
 .exclusion-item__remove {
   flex: none;
-  padding: 0 0.8rem;
-  font-family: var(--font-mono);
-  font-weight: 800;
-  background: var(--white);
+  padding: 0 0.7rem;
+  font-size: 1.1rem;
+  background: transparent;
   border: 0;
-  border-left: var(--border-thin);
+  border-left: 2px solid rgba(0, 0, 0, 0.2);
   cursor: pointer;
+  transition: background-color var(--duration) var(--ease);
 }
 
-.exclusion-item__remove:hover:not(:disabled) { background: var(--red); }
-.exclusion-item__remove:disabled { background: var(--grey); cursor: not-allowed; }
+.exclusion-item__remove:hover:not(:disabled) { background: hsl(4, 90%, 79%); }
+.exclusion-item__remove:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -4px; }
+.exclusion-item__remove:disabled { cursor: not-allowed; opacity: 0.5; }
 
-.exclusion-empty {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  padding: 0.4rem 0;
-}
-
-.exclusion-empty[hidden] { display: none; }
+.exclusion-empty { font-size: 0.95rem; }
 
 .exclusion-add {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.4rem;
+  gap: 0.6rem;
+  margin: 0.4rem 0 0.5rem;
 }
 
 
-/* ---------- Live log ---------- */
+/* ==========================================================================
+   8. LIVE LOG
+   Stays dark and monospace: log text must be easy to scan.
+   ========================================================================== */
 
-.log-panel {
-  min-height: 24rem;
-  background: var(--white);
-}
+.log-panel { min-height: 24rem; }
 
 .log-panel__header {
   display: flex;
@@ -404,22 +498,25 @@
   gap: 1rem;
 }
 
-/* Push AUTO-SCROLL and CLEAR VIEW to the right. */
 .log-panel__header .panel__label { margin-right: auto; }
 
 .log-output {
   flex: 1;
   min-height: 18rem;
   overflow-y: auto;
-  padding: 0.75rem;
+  padding: 0.9rem 1rem;
   font-family: var(--font-mono);
   font-size: 0.82rem;
   line-height: 1.5;
-  background: var(--ink);
-  color: #e9e6da;
-  border: var(--border);
+  color: var(--log-text);
+  background: var(--log-bg);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: 22px;
+  corner-shape: squircle;
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.5);
 }
 
+.log-output:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 3px; }
 .log-empty { color: #9a9a8d; }
 
 .log-line {
@@ -432,11 +529,11 @@
 .log-line__text { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Severity colours. Errors and warnings also get a text marker (see log_view.js). */
-.log-line--app    .log-line__text { color: var(--yellow); font-weight: 700; }
-.log-line--error  .log-line__text { color: #ff7a70; font-weight: 700; }
+.log-line--app     .log-line__text { color: hsl(132, 81%, 69%); font-weight: 700; }
+.log-line--error   .log-line__text { color: #ff8a80; font-weight: 700; }
 .log-line--warning .log-line__text,
-.log-line--notice .log-line__text { color: var(--orange); }
-.log-line--debug  .log-line__text { color: #8d8d80; }
+.log-line--notice  .log-line__text { color: #ffb347; }
+.log-line--debug   .log-line__text { color: #8d8d80; }
 
 @media (max-width: 600px) {
   .log-line { grid-template-columns: 1fr; gap: 0; }
