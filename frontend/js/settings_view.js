@@ -94,15 +94,46 @@ export class SettingsView {
   // ------------------------------------------------------------------
 
   #addFromInput() {
-    const pattern = this.exclusionInput.value.trim();
-    if (!pattern) return;
+    const typed = this.exclusionInput.value.trim();
+    if (!typed) return;
+
+    const pattern = this.#relativeToSyncFolder(typed);
     if (!this.exclusions.includes(pattern)) {
       this.exclusions.push(pattern);
       this.#renderExclusions();
-      this.showMessage("Exclusion added. Click Save settings to keep it.", "success");
+      this.showMessage(
+        pattern === typed
+          ? "Exclusion added. Click Save settings to keep it."
+          : `Patterns are relative to the synced folder, so "${typed}" was shortened to "${pattern}". Click Save settings to keep it.`,
+        "success"
+      );
     }
     this.exclusionInput.value = "";
     this.exclusionInput.focus();
+  }
+
+  /**
+   * rclone matches exclusions against paths INSIDE the synced folder, so a full
+   * path such as "/Docs/Vault/Archive" (when the remote is "onedrive:Docs/Vault")
+   * would never match anything. If the pattern starts with the remote's folder or
+   * the local folder, cut that part off and anchor the rest at the top: "/Archive".
+   * Anything else is returned unchanged.
+   */
+  #relativeToSyncFolder(pattern) {
+    const clean = (text) => text.replaceAll("\\", "/").replace(/^\/+|\/+$/g, "");
+    const remoteFolder = this.remote.value.includes(":")
+      ? this.remote.value.slice(this.remote.value.indexOf(":") + 1)
+      : "";
+    const wanted = clean(pattern).toLowerCase();
+
+    for (const base of [remoteFolder, this.localPath.value]) {
+      const prefix = clean(base).toLowerCase();
+      if (prefix && wanted.startsWith(prefix + "/")) {
+        const rest = clean(pattern).slice(prefix.length + 1);
+        return "/" + rest + (/[\\/]$/.test(pattern) ? "/" : "");
+      }
+    }
+    return pattern;
   }
 
   #removeExclusion(pattern) {
