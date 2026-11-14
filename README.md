@@ -64,6 +64,13 @@ buttons that sink when hovered and pressed.
   (132 = green; try 210 for blue). Any element can override it, e.g. `.btn--danger`.
 - Buttons, inputs and switches share one rule in `components.css` (cards are flat on purpose).
   States only change `--lift`, so adding a new 3D element means adding its selector there.
+- Page layout (wide screens): status banner, then Settings (left) and Run (right) at equal
+  height, then the log, which is exactly one screen tall. Narrow screens use one column.
+- Secondary buttons use `.btn--secondary` (flat outline). The primary button is the raised
+  green one. To try another secondary style, only that one CSS block changes.
+- **Reset to defaults** loads the defaults from the backend (`GET /api/settings/defaults`,
+  defined in `config.py`) into the form. Nothing is saved until you click Save settings,
+  and your local folder is kept.
 - The Itim font is loaded from the jsDelivr CDN (the only external resource, allowed
   in the Content-Security-Policy in `backend/http_server.py`). Offline, the UI falls
   back to the system "cursive" font. The log always uses a monospace font.

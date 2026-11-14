@@ -1,14 +1,14 @@
 /**
  * settings_view.js
  * The "SETTINGS" panel: local folder, remote, max file size and the
- * exclusion list. Saving is delegated to the onSave callback.
+ * exclusion list. Saving and resetting are delegated to callbacks.
  */
 
 export class SettingsView {
   /**
-   * @param {{onSave: (settings: object) => void}} callbacks
+   * @param {{onSave: (settings: object) => void, onReset: () => void}} callbacks
    */
-  constructor({ onSave }) {
+  constructor({ onSave, onReset }) {
     this.form = document.getElementById("settings-form");
     this.localPath = document.getElementById("setting-local-path");
     this.remote = document.getElementById("setting-remote");
@@ -18,6 +18,7 @@ export class SettingsView {
     this.exclusionInput = document.getElementById("exclusion-input");
     this.exclusionAddButton = document.getElementById("exclusion-add-button");
     this.saveButton = document.getElementById("save-button");
+    this.resetButton = document.getElementById("reset-button");
     this.message = document.getElementById("settings-message");
     this.lockNote = document.getElementById("settings-lock-note");
 
@@ -30,6 +31,7 @@ export class SettingsView {
       onSave(this.collect());
     });
 
+    this.resetButton.addEventListener("click", () => onReset());
     this.exclusionAddButton.addEventListener("click", () => this.#addFromInput());
     this.exclusionInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
@@ -48,6 +50,19 @@ export class SettingsView {
     this.#renderExclusions();
   }
 
+  /**
+   * Put the default values into the form, WITHOUT saving them (the user still
+   * has to click Save). The local folder is kept: it is specific to this PC and
+   * has no meaningful default.
+   */
+  applyDefaults(defaults) {
+    this.remote.value = defaults.remote;
+    this.maxSize.value = defaults.max_size;
+    this.exclusions = [...defaults.exclusions];
+    this.#renderExclusions();
+    this.showMessage("Defaults loaded (your local folder was kept). Click Save settings to keep them.", "success");
+  }
+
   /** Read the form back into a settings object for the backend. */
   collect() {
     return {
@@ -64,7 +79,7 @@ export class SettingsView {
     this.isLocked = isLocked;
 
     for (const element of [this.localPath, this.remote, this.maxSize, this.exclusionInput,
-                           this.exclusionAddButton, this.saveButton]) {
+                           this.exclusionAddButton, this.saveButton, this.resetButton]) {
       element.disabled = isLocked;
     }
     this.lockNote.hidden = !isLocked;

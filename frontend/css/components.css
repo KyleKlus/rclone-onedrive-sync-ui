@@ -90,8 +90,22 @@
 
 /* Variants only change the hue. */
 .btn--danger { --hue: 4; }
-.btn--plain  { --surface: hsl(var(--hue), 40%, 95%); --side: hsl(var(--hue), 10%, 47%); }
 .btn--small  { padding: 0.1rem 0.6rem; font-size: 0.9rem; --rest: 3px; }
+
+/* Secondary button: a flat outline, quieter than the raised primary button.
+   It keeps the .btn size, icon and focus ring; only the surface changes. It
+   fills softly on hover and sinks 2px when pressed.
+   (To try a different style, e.g. a pale raised button, only this block changes.) */
+.btn--secondary {
+  color: hsl(var(--hue), 55%, 18%);
+  background-color: transparent;
+  border-color: hsl(var(--hue), 36%, 40%);
+  box-shadow: none;
+  transform: none;
+}
+
+.btn--secondary:hover:not(:disabled)  { background-color: hsla(var(--hue), 81%, 69%, 0.35); }
+.btn--secondary:active:not(:disabled) { background-color: hsla(var(--hue), 81%, 69%, 0.6); transform: translateY(2px); }
 
 .button-row {
   display: flex;
@@ -99,6 +113,8 @@
   gap: 0.9rem;
   padding-bottom: 0.4rem;   /* room for the buttons' 3D shadow */
 }
+
+.button-row--end { justify-content: flex-end; }
 
 
 /* ==========================================================================
@@ -370,7 +386,14 @@
   gap: 0.9rem;
 }
 
-.mode-card { display: block; cursor: pointer; }
+/* The Run card is stretched to the height of the Settings card; the two mode
+   cards share the extra space instead of leaving an empty gap. */
+.controls-panel .mode-picker {
+  flex: 1;
+  grid-auto-rows: 1fr;
+}
+
+.mode-card { display: flex; cursor: pointer; }
 
 /* The radio button stays in the DOM for keyboards and screen readers. */
 .mode-card input {
@@ -382,6 +405,7 @@
 /* Flat card: selection is shown by colour, border and the circle marker. */
 .mode-card__body {
   display: block;
+  flex: 1;
   padding: 0.7rem 1rem;
   background-color: hsl(var(--hue), 40%, 95%);
   border: var(--border-width) solid var(--border-color);
@@ -435,8 +459,38 @@
 
 
 /* ==========================================================================
-   7. SETTINGS: exclusion list
+   7. SETTINGS: form layout and exclusion list
    ========================================================================== */
+
+/* The form fills the card, so its footer (message + buttons) sits at the bottom
+   and lines up with the bottom of the Run card next to it. */
+.settings-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Two columns when there is room (folder / remote / size  |  exclusions),
+   one column when there is not. */
+.settings-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  column-gap: 2rem;
+  align-items: start;
+}
+
+/* Message on the left, buttons on the right. */
+.form-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.form-footer .form-message { flex: 1 1 14rem; }
+.form-footer .button-row   { margin-left: auto; }
 
 .exclusion-list {
   display: flex;
@@ -454,18 +508,29 @@
   overflow: hidden;
 }
 
-.exclusion-item__pattern {
-  padding: 0.15rem 0.7rem 0.15rem 0.9rem;
+/* Pattern text and the remove button share the SAME font, size, line-height and
+   vertical padding. Their glyphs therefore sit on the same baseline no matter
+   which monospace font the system provides. The uneven padding centres
+   monospace glyphs optically (they sit high in their line box). */
+.exclusion-item__pattern,
+.exclusion-item__remove {
+  display: flex;
+  align-items: center;
+  padding-block: 0.25rem 0.05rem;
   font-family: var(--font-mono);
   font-size: 0.85rem;
   line-height: 1.7;
+}
+
+.exclusion-item__pattern {
+  padding-inline: 0.9rem 0.7rem;
   overflow-wrap: anywhere;
 }
 
 .exclusion-item__remove {
   flex: none;
-  padding: 0 0.7rem;
-  font-size: 1.1rem;
+  justify-content: center;
+  padding-inline: 0.7rem;
   background: transparent;
   border: 0;
   border-left: 2px solid rgba(0, 0, 0, 0.2);
@@ -491,7 +556,14 @@
    Stays dark and monospace: log text must be easy to scan.
    ========================================================================== */
 
-.log-panel { min-height: 24rem; }
+/* One screen tall: scrolled into view, the log fills the whole window.
+   (100vh first as a fallback for browsers without dynamic viewport units.) */
+.log-panel {
+  height: calc(100vh - 2 * var(--gap));
+  height: calc(100dvh - 2 * var(--gap));
+  min-height: 24rem;
+  scroll-margin-block: var(--gap);
+}
 
 .log-panel__header {
   display: flex;

@@ -9,6 +9,7 @@ Endpoints
 ---------
 GET  /api/status     Current system state.
 GET  /api/settings   Current user settings.
+GET  /api/settings/defaults   The default values (used by "Reset to defaults").
 PUT  /api/settings   Validate and save settings (not while a sync runs).
 POST /api/sync       Start a job. Body: {"mode", "resync", "dry_run"}.
 POST /api/stop       Ask the running job to stop.
@@ -21,6 +22,7 @@ from typing import Callable, Optional
 from .errors import SettingsError, SyncBusyError, SyncConfigError
 from .log_buffer import LogBuffer
 from .models import SyncMode
+from .settings import AppSettings
 from .settings_store import SettingsStore
 from .sync_manager import SyncManager
 
@@ -50,6 +52,7 @@ class ApiRouter:
         self._routes: dict = {
             ("GET", "/api/status"): self._get_status,
             ("GET", "/api/settings"): self._get_settings,
+            ("GET", "/api/settings/defaults"): self._get_default_settings,
             ("PUT", "/api/settings"): self._put_settings,
             ("POST", "/api/sync"): self._post_sync,
             ("POST", "/api/stop"): self._post_stop,
@@ -81,6 +84,10 @@ class ApiRouter:
 
     def _get_settings(self, query: dict, body: dict) -> ApiResponse:
         return ApiResponse(200, self._settings_store.get().to_dict())
+
+    def _get_default_settings(self, query: dict, body: dict) -> ApiResponse:
+        """The defaults live in config.py; the UI asks for them instead of copying them."""
+        return ApiResponse(200, AppSettings().to_dict())
 
     def _put_settings(self, query: dict, body: dict) -> ApiResponse:
         if self._sync_manager.is_busy():

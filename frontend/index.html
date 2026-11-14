@@ -49,7 +49,80 @@
       </dl>
     </section>
 
-    <!-- ============================ 2 / RUN ============================ -->
+    <!-- ========================= 2 / SETTINGS ========================= -->
+    <section class="panel settings-panel">
+      <h2 class="panel__label">Settings</h2>
+
+      <form id="settings-form" class="settings-form" novalidate>
+        <div class="settings-grid">
+
+          <div class="settings-col">
+            <label class="field">
+              <span class="field__label">Local folder</span>
+              <input class="field__input" type="text" id="setting-local-path"
+                     placeholder="C:\Users\you\OneDrive  or  /home/you/OneDrive" autocomplete="off">
+              <span class="field__hint">Full path of the folder on this PC.</span>
+            </label>
+
+            <label class="field">
+              <span class="field__label">OneDrive remote</span>
+              <input class="field__input" type="text" id="setting-remote"
+                     placeholder="onedrive:" autocomplete="off">
+              <span class="field__hint">Remote name from <code>rclone config</code>, optionally with a folder: <code>onedrive:Documents</code>.</span>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Max file size</span>
+              <input class="field__input field__input--short" type="text" id="setting-max-size"
+                     placeholder="50M" autocomplete="off">
+              <span class="field__hint">Bigger files are skipped. Examples: <code>500k</code>, <code>50M</code>, <code>2G</code>, <code>off</code> (no limit).</span>
+            </label>
+          </div>
+
+          <div class="settings-col">
+            <div class="field">
+              <span class="field__label">Do not sync (exclusions)</span>
+              <ul class="exclusion-list" id="exclusion-list"></ul>
+              <p class="exclusion-empty" id="exclusion-empty" hidden>Nothing excluded. Everything is synced.</p>
+
+              <div class="exclusion-add">
+                <input class="field__input" type="text" id="exclusion-input"
+                       placeholder="node_modules/  or  *.iso" autocomplete="off"
+                       aria-label="New exclusion pattern">
+                <button type="button" class="btn" id="exclusion-add-button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg>
+                  Add
+                </button>
+              </div>
+              <span class="field__hint">
+                <code>Folder/</code> a folder anywhere &middot;
+                <code>/Folder/</code> only at the top level &middot;
+                <code>*.iso</code> files by pattern &middot;
+                <code>Docs/secret.txt</code> one specific file.
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="form-footer">
+          <p class="form-message" id="settings-message" role="status"></p>
+          <div class="button-row button-row--end">
+            <button type="button" class="btn btn--secondary" id="reset-button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.96 7.96 0 0 1 12.5 10c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.07 10.6 17.19 8 12.5 8z"/></svg>
+              Reset to defaults
+            </button>
+            <button type="submit" class="btn" id="save-button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.8 1.8 6 6L21 8l-1.8-1.8z"/></svg>
+              Save settings
+            </button>
+          </div>
+        </div>
+        <p class="field__hint" id="settings-lock-note" hidden>Settings are locked while a sync is running.</p>
+      </form>
+    </section>
+
+    <!-- ============================ 3 / RUN ============================ -->
     <section class="panel controls-panel">
       <h2 class="panel__label">Run</h2>
 
@@ -108,72 +181,13 @@
           (a safety check) and builds that starting point. OneDrive wins.
           You only need to do this once, or when rclone asks for it.
         </p>
-        <button type="button" class="btn btn--plain" id="resync-button">
+        <button type="button" class="btn btn--secondary" id="resync-button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6.5 12 11V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"/></svg>
           Run first-time setup
         </button>
       </details>
 
       <p class="form-message" id="control-message" role="status"></p>
-    </section>
-
-    <!-- ========================= 3 / SETTINGS ========================= -->
-    <section class="panel settings-panel">
-      <h2 class="panel__label">Settings</h2>
-
-      <form id="settings-form" novalidate>
-        <label class="field">
-          <span class="field__label">Local folder</span>
-          <input class="field__input" type="text" id="setting-local-path"
-                 placeholder="C:\Users\you\OneDrive  or  /home/you/OneDrive" autocomplete="off">
-          <span class="field__hint">Full path of the folder on this PC.</span>
-        </label>
-
-        <label class="field">
-          <span class="field__label">OneDrive remote</span>
-          <input class="field__input" type="text" id="setting-remote"
-                 placeholder="onedrive:" autocomplete="off">
-          <span class="field__hint">Remote name from <code>rclone config</code>, optionally with a folder: <code>onedrive:Documents</code>.</span>
-        </label>
-
-        <label class="field">
-          <span class="field__label">Max file size</span>
-          <input class="field__input field__input--short" type="text" id="setting-max-size"
-                 placeholder="50M" autocomplete="off">
-          <span class="field__hint">Bigger files are skipped. Examples: <code>500k</code>, <code>50M</code>, <code>2G</code>, <code>off</code> (no limit).</span>
-        </label>
-
-        <div class="field">
-          <span class="field__label">Do not sync (exclusions)</span>
-          <ul class="exclusion-list" id="exclusion-list"></ul>
-          <p class="exclusion-empty" id="exclusion-empty" hidden>Nothing excluded. Everything is synced.</p>
-
-          <div class="exclusion-add">
-            <input class="field__input" type="text" id="exclusion-input"
-                   placeholder="node_modules/  or  *.iso" autocomplete="off"
-                   aria-label="New exclusion pattern">
-            <button type="button" class="btn" id="exclusion-add-button">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg>
-              Add
-            </button>
-          </div>
-          <span class="field__hint">
-            <code>Folder/</code> a folder anywhere &middot;
-            <code>/Folder/</code> only at the top level &middot;
-            <code>*.iso</code> files by pattern &middot;
-            <code>Docs/secret.txt</code> one specific file.
-          </span>
-        </div>
-
-        <div class="button-row">
-          <button type="submit" class="btn" id="save-button">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.8 1.8 6 6L21 8l-1.8-1.8z"/></svg>
-            Save settings
-          </button>
-        </div>
-        <p class="form-message" id="settings-message" role="status"></p>
-        <p class="field__hint" id="settings-lock-note" hidden>Settings are locked while a sync is running.</p>
-      </form>
     </section>
 
     <!-- ============================ 4 / LOG ============================ -->
@@ -187,7 +201,7 @@
           </label>
           <label for="log-autoscroll">Auto-scroll</label>
         </div>
-        <button type="button" class="btn btn--small btn--plain" id="log-clear-button">Clear view</button>
+        <button type="button" class="btn btn--small btn--secondary" id="log-clear-button">Clear view</button>
       </div>
 
       <div class="log-output" id="log-output" role="log" aria-live="off" tabindex="0">

@@ -155,6 +155,18 @@ class SettingsTests(ServerTestCase):
             self.assertEqual(status, 400, bad)
             self.assertIn("error", body)
 
+    def test_defaults_endpoint(self):
+        status, defaults = self.request("GET", "/api/settings/defaults")
+        self.assertEqual(status, 200)
+        self.assertEqual(defaults["remote"], "onedrive:")
+        self.assertEqual(defaults["max_size"], "50M")
+        self.assertIn("*.tmp", defaults["exclusions"])
+        # Asking for defaults must not change the saved settings.
+        self.save_settings(max_size="2G")
+        self.request("GET", "/api/settings/defaults")
+        _, current = self.request("GET", "/api/settings")
+        self.assertEqual(current["max_size"], "2G")
+
     def test_settings_persist_to_disk(self):
         self.save_settings(max_size="2G")
         saved = json.loads((self.workdir / "data" / "settings.json").read_text())

@@ -27,6 +27,7 @@ class App {
     });
     this.settingsView = new SettingsView({
       onSave: (settings) => this.#saveSettings(settings),
+      onReset: () => this.#resetSettings(),
     });
 
     /** Id of the newest log line already shown. */
@@ -80,6 +81,14 @@ class App {
       const saved = await this.api.saveSettings(settings);
       this.settingsView.load(saved);  // shows what the backend actually stored
       this.settingsView.showMessage("Settings saved.", "success");
+    } catch (error) {
+      this.settingsView.showMessage(this.#messageOf(error), "error");
+    }
+  }
+
+  async #resetSettings() {
+    try {
+      this.settingsView.applyDefaults(await this.api.getDefaultSettings());
     } catch (error) {
       this.settingsView.showMessage(this.#messageOf(error), "error");
     }

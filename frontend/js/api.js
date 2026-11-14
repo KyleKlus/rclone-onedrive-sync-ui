@@ -28,6 +28,11 @@ export class ApiClient {
     return this.#request("GET", "/api/settings");
   }
 
+  /** @returns {Promise<object>} The default settings (the backend owns them). */
+  getDefaultSettings() {
+    return this.#request("GET", "/api/settings/defaults");
+  }
+
   /**
    * @param {object} settings  {local_path, remote, max_size, exclusions}
    * @returns {Promise<object>} The settings as saved (cleaned up by the backend).
