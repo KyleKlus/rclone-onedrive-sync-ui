@@ -33,13 +33,26 @@
     <section class="panel status-panel" id="status-panel" data-state="offline" aria-live="polite">
       <h2 class="panel__label">System state</h2>
 
-      <div class="status-panel__headline">
-        <span class="status-panel__glyph" id="state-glyph" aria-hidden="true">?</span>
-        <p class="status-panel__word" id="state-word">Connecting</p>
-      </div>
-      <p class="status-panel__description" id="state-description">Waiting for the backend ...</p>
+      <!-- Wide screens: the state on the left, activity bar and facts right next to it. -->
+      <div class="status-panel__body">
+        <div class="status-panel__main">
+          <div class="status-panel__headline">
+            <span class="status-panel__glyph" id="state-glyph" aria-hidden="true">?</span>
+            <p class="status-panel__word" id="state-word">Connecting</p>
+          </div>
+          <p class="status-panel__description" id="state-description">Waiting for the backend ...</p>
+        </div>
 
-      <div class="activity-bar" id="activity-bar" aria-hidden="true"></div>
+        <div class="status-panel__details">
+          <div class="activity-bar" id="activity-bar" aria-hidden="true"></div>
+          <dl class="facts">
+            <div class="facts__item"><dt>Mode</dt><dd id="fact-mode">-</dd></div>
+            <div class="facts__item"><dt>Started</dt><dd id="fact-started">-</dd></div>
+            <div class="facts__item"><dt>Duration</dt><dd id="fact-duration">-</dd></div>
+            <div class="facts__item"><dt>Exit code</dt><dd id="fact-exit">-</dd></div>
+          </dl>
+        </div>
+      </div>
 
       <p class="notice" id="resync-notice" hidden>
         <strong>Action needed:</strong> rclone has no baseline for two-way sync yet.
@@ -48,13 +61,6 @@
       <p class="notice notice--warning" id="rclone-notice" hidden>
         <strong>rclone not found:</strong> install rclone or add it to your PATH, then reload this page.
       </p>
-
-      <dl class="facts">
-        <div class="facts__item"><dt>Mode</dt><dd id="fact-mode">-</dd></div>
-        <div class="facts__item"><dt>Started</dt><dd id="fact-started">-</dd></div>
-        <div class="facts__item"><dt>Duration</dt><dd id="fact-duration">-</dd></div>
-        <div class="facts__item"><dt>Exit code</dt><dd id="fact-exit">-</dd></div>
-      </dl>
     </section>
 
     <!-- ========================= 2 / SETTINGS ========================= -->

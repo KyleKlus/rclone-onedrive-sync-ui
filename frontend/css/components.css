@@ -298,6 +298,30 @@
 
 .status-panel { transition: background-color 0.3s ease; }
 
+/* Narrow screens: everything stacked. Wide screens: state left, details right. */
+.status-panel__body {
+  display: grid;
+  gap: 1rem;
+}
+
+.status-panel__main,
+.status-panel__details {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 1000px) {
+  .status-panel__body {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 3rem;
+  }
+
+  /* Four facts in one row next to the state; the bar sits above them. */
+  .status-panel__details .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
 .status-panel__headline {
   display: flex;
   align-items: center;
