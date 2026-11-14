@@ -119,3 +119,7 @@ data/                      created at runtime (settings, filter file)
 ```
 python -m unittest discover -s tests -v
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
