@@ -9,7 +9,7 @@
 
 /* ==========================================================================
    1. TACTILE SURFACES
-   Buttons, inputs, switches and mode cards share ONE recipe:
+   Buttons, inputs and switches share ONE recipe (cards are flat on purpose):
 
      --rest   how tall the surface looks when nothing happens
      --lift   how tall it looks RIGHT NOW (this is the only thing states change)
@@ -21,8 +21,7 @@
 
 .btn,
 .field__input,
-.switch,
-.mode-card__body {
+.switch {
   --rest: var(--rest-height);
   --lift: var(--rest);
   --surface: hsl(var(--hue), 81%, 69%);
@@ -150,17 +149,21 @@
    so keyboards and screen readers keep working. */
 
 .switch {
+  /* Sizes are the original design's. `content-box` matters: the 3px border
+     sits OUTSIDE the width/height, which is what gives the knob its room. */
   --rest: 2px;
-  --width: 44px;
-  --height: 1.2rem;
+  --width: 35px;
+  --height: 0.9rem;
   --padding: 2px;
   --slider-size: calc(var(--height) - 2 * var(--padding));
   --surface: hsl(var(--hue), 40%, 40%);      /* track when OFF  */
   position: relative;
   display: inline-block;
   flex: none;
+  box-sizing: content-box;
   width: var(--width);
   height: var(--height);
+  margin: 2px;
   border-radius: var(--height);
   cursor: pointer;
 }
@@ -190,7 +193,7 @@
 
 .switch:has(input:checked) .slider {
   background-color: hsl(var(--hue), 40%, 40%);
-  transform: translateX(calc(var(--width) - 2 * var(--padding) - var(--slider-size) - 2 * var(--border-width)));
+  transform: translateX(calc(var(--width) - 2 * var(--padding) - var(--slider-size)));
 }
 
 /* A switch followed by its text. */
@@ -218,9 +221,7 @@
   border: 2px solid rgba(0, 0, 0, 0.2);
   border-radius: var(--card-radius);
   corner-shape: squircle;
-  box-shadow:
-    -1px 2px 0 var(--card-shadow-color),
-    -1px 7px 10px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--card-shadow);
 }
 
 .panel__label {
@@ -249,7 +250,7 @@
   background: var(--card-bg);
   border: 2px solid rgba(0, 0, 0, 0.2);
   border-radius: 999px;
-  box-shadow: -1px 2px 0 var(--card-shadow-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   user-select: none;
 }
 
@@ -298,7 +299,6 @@
   background: var(--ink);
   border-radius: 16px;
   corner-shape: squircle;
-  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
 }
 
 .status-panel__word {
@@ -379,12 +379,15 @@
   pointer-events: none;
 }
 
+/* Flat card: selection is shown by colour, border and the circle marker. */
 .mode-card__body {
-  --surface: hsl(var(--hue), 40%, 95%);
-  --side: hsl(var(--hue), 10%, 47%);
   display: block;
   padding: 0.7rem 1rem;
+  background-color: hsl(var(--hue), 40%, 95%);
+  border: var(--border-width) solid var(--border-color);
   border-radius: 16px;
+  corner-shape: squircle;
+  transition: background-color var(--duration) var(--ease), border-color var(--duration) var(--ease);
 }
 
 .mode-card__title {
@@ -398,12 +401,11 @@
   line-height: 1.35;
 }
 
-.mode-card:hover input:not(:disabled) + .mode-card__body { --lift: 3px; }
+.mode-card:hover input:not(:disabled) + .mode-card__body { background-color: hsl(var(--hue), 84%, 90%); }
 
 .mode-card input:checked + .mode-card__body {
-  --surface: hsl(var(--hue), 81%, 69%);
-  --side: hsl(var(--hue), 36%, 47%);
-  --lift: 1px;
+  background-color: hsl(var(--hue), 81%, 69%);
+  border-color: hsl(var(--hue), 36%, 40%);
 }
 
 /* Text marker so the selection is not conveyed by colour alone. */

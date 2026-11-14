@@ -62,7 +62,7 @@ buttons that sink when hovered and pressed.
 
 - All colours derive from one number, `--hue`, in `frontend/css/base.css`
   (132 = green; try 210 for blue). Any element can override it, e.g. `.btn--danger`.
-- Buttons, inputs, switches and mode cards share one rule in `components.css`.
+- Buttons, inputs and switches share one rule in `components.css` (cards are flat on purpose).
   States only change `--lift`, so adding a new 3D element means adding its selector there.
 - The Itim font is loaded from the jsDelivr CDN (the only external resource, allowed
   in the Content-Security-Policy in `backend/http_server.py`). Offline, the UI falls

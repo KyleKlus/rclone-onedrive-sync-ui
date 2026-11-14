@@ -21,7 +21,8 @@
   --ink: #181713;
   --heading: #25562a;
   --card-bg: #e1eef1;
-  --card-shadow-color: #7b7b7b;
+  /* Soft and diffuse (no hard edge), so cards sit on the page without looking raised. */
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 20px rgba(0, 0, 0, 0.10);
   --log-bg: #181713;
   --log-text: #e9e6da;
 
