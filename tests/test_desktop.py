@@ -92,6 +92,15 @@ class DesktopWindowTests(unittest.TestCase):
         self.assertFalse(window.events.closing[0]())
         self.assertTrue(window.asked)
 
+    def test_dmabuf_workaround_is_set_but_overridable(self):
+        with mock.patch.dict("os.environ", {}, clear=False) as env:
+            env.pop("WEBKIT_DISABLE_DMABUF_RENDERER", None)
+            DesktopWindow._apply_rendering_workarounds()
+            self.assertEqual(env["WEBKIT_DISABLE_DMABUF_RENDERER"], "1")
+            env["WEBKIT_DISABLE_DMABUF_RENDERER"] = "0"
+            DesktopWindow._apply_rendering_workarounds()
+            self.assertEqual(env["WEBKIT_DISABLE_DMABUF_RENDERER"], "0")
+
     def test_missing_pywebview_gives_help(self):
         with mock.patch.dict(sys.modules, {"webview": None}):
             with self.assertRaises(DesktopUnavailable):
