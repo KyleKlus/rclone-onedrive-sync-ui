@@ -18,6 +18,9 @@ from .security import LocalhostGuard
 # Make sure browsers get the right type even if the OS registry is wrong.
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("application/manifest+json", ".webmanifest")
+mimetypes.add_type("image/svg+xml", ".svg")
+mimetypes.add_type("image/x-icon", ".ico")
 
 _MAX_BODY_BYTES = 64 * 1024
 

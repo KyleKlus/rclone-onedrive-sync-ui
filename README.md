@@ -97,6 +97,7 @@ frontend/
   css/base.css             design tokens (--hue ...), reset, page layout
   css/components.css       one section per component
   img/noise.svg            background texture
+  img/icons/               app icons (apple-touch, 192, 512); favicon.svg/.ico and site.webmanifest sit next to index.html
   js/api.js                the only file that talks to the backend
   js/status_view.js  controls_view.js  settings_view.js  log_view.js
   js/main.js               wires views to the API, polling loop
