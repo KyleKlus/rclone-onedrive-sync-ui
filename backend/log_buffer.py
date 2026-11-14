@@ -20,6 +20,16 @@ _LEVEL_PATTERN = re.compile(
 )
 
 
+# rclone colours some lines (bisync in particular) with ANSI escape codes such
+# as ESC[33m ... ESC[0m. A browser would show them as stray "[33m" text.
+_ANSI_PATTERN = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove terminal colour / cursor codes from a line."""
+    return _ANSI_PATTERN.sub("", text)
+
+
 def detect_level(text: str) -> str:
     """Work out the severity of a raw rclone output line."""
     match = _LEVEL_PATTERN.match(text)
@@ -42,6 +52,7 @@ class LogBuffer:
         Add a line. If ``level`` is omitted it is detected from the text.
         Messages written by this app itself use the level ``"app"``.
         """
+        text = strip_ansi(text)
         with self._lock:
             entry = LogEntry(
                 id=self._next_id,
