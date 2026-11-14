@@ -59,24 +59,28 @@ body {
   font-family: var(--font-display);
   font-size: var(--font-size);
   line-height: 1.4;
-  /* Same two-layer gradient as the calendar generator page. */
-  background-color: #ffffff;
-  background-image:
-    linear-gradient(rgba(207, 207, 181, 0.49), rgba(75, 165, 93, 0.294)),
-    linear-gradient(66deg, rgba(42, 137, 233, 0.486), rgba(183, 102, 102, 0.38));
-  background-attachment: fixed;
 }
 
-/* Noise texture over the gradient. It sits behind all content. */
+/*
+ * Background: the calendar generator's two-layer gradient plus a noise texture.
+ * It lives on ONE fixed layer of its own instead of `background-attachment: fixed`
+ * on the body, and uses no CSS filter. Both of those force the browser to repaint
+ * the whole window on every scroll or resize, which is very slow when the window
+ * has to render in software (see desktop/window.py).
+ */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  filter: brightness(1.2);
-  background-image: url(../img/noise.svg);
-  background-size: 250px 250px;
+  background-color: #ffffff;
+  background-image:
+    url(../img/noise.svg),
+    linear-gradient(rgba(207, 207, 181, 0.49), rgba(75, 165, 93, 0.294)),
+    linear-gradient(66deg, rgba(42, 137, 233, 0.486), rgba(183, 102, 102, 0.38));
+  background-size: 250px 250px, auto, auto;
+  will-change: transform;  /* keep it on its own layer, so scrolling never repaints it */
 }
 
 h1, h2, p, dl, dd, ul, fieldset { margin: 0; padding: 0; }
