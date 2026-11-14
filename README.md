@@ -21,6 +21,27 @@ Then in the browser (default address `http://127.0.0.1:8765`):
 
 Requires Python 3.9+ and rclone 1.66+ (for `--compare` and `--conflict-resolve`).
 
+## Desktop app (one window, with dock icon)
+
+Instead of the browser you can run everything as a single native window:
+
+```
+python run_desktop.py                      # open the app
+python run_desktop.py --install-launcher   # once: adds it to the app menu / dock
+```
+
+Needs pywebview and the WebKitGTK system library (install commands are printed
+if they are missing; see also `requirements-desktop.txt`). Notes:
+
+- **Dock icon:** the dock finds the icon through a `.desktop` file whose name matches the
+  window's application id (`onedrive-sync`, set in `desktop/identity.py`). `--install-launcher`
+  writes that file and the icons into `~/.local/share`, no root needed. Start the app from
+  the app menu (or pin it) afterwards; `--uninstall-launcher` removes everything again.
+- Closing the window quits the app (after asking, if a sync is running).
+- Only one copy can run at a time, so two syncs can never touch the same folder.
+- The window uses a random free port on `127.0.0.1`; all localhost-only protections stay active.
+- `python run.py --open` (browser mode) still works unchanged.
+
 ## Modes
 
 | Mode | rclone command | Behaviour |
@@ -78,7 +99,9 @@ buttons that sink when hovered and pressed.
 ## Project layout
 
 ```
-run.py                     entry point
+run.py                     entry point (browser mode)
+run_desktop.py             entry point (native window)
+desktop/                   the native window, dock identity, single-instance lock
 backend/
   config.py                fixed settings + the BISYNC_FLAGS / DOWNLOAD_FLAGS lists
   errors.py  models.py     exceptions, enums, log entry type
