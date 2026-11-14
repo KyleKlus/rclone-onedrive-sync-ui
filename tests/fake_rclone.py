@@ -19,6 +19,12 @@ import time
 mode = os.environ.get("FAKE_RCLONE_MODE", "ok")
 print("ARGS: " + " ".join(sys.argv[1:]), flush=True)
 
+# Like the real rclone, refuse flags a subcommand does not have.
+# (--filters-file exists only for bisync; plain sync uses --filter-from.)
+if len(sys.argv) > 1 and sys.argv[1] == "sync" and "--filters-file" in sys.argv:
+    print("Error: unknown flag: --filters-file", flush=True)
+    sys.exit(1)
+
 if mode == "slow":
     for second in range(150):
         print(f"2026/11/13 21:40:00 INFO  : working... {second}", flush=True)

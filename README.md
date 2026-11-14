@@ -33,7 +33,7 @@ Use **DRY RUN** to preview what a run would do without changing anything.
 ## Exclusions and max file size
 
 Both are set in the UI and saved to `data/settings.json`. Exclusions are written
-to `data/filters.txt` before every run and passed via `--filters-file`.
+to `data/filters.txt` before every run. Two-way sync passes it as `--filters-file` (a bisync-only flag); download mode passes the same file as `--filter-from`.
 
 | Pattern | Meaning |
 |---------|---------|

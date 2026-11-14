@@ -19,6 +19,8 @@ class FilterFile:
     The file is rewritten before every run. Its content is deterministic
     (same patterns -> same bytes), which matters because ``rclone bisync``
     remembers a hash of the filter file and complains when it changes.
+    The same file is passed as --filters-file to bisync and as --filter-from
+    to sync (see ``build_sync_command``).
     """
 
     def __init__(self, path: Path) -> None:
@@ -53,14 +55,19 @@ class RcloneCommandBuilder:
         if mode is SyncMode.BISYNC:
             command = [self._binary, "bisync", settings.local_path, settings.remote]
             command += self._flags(config.BISYNC_FLAGS, settings.max_size)
+            # bisync has its own flag for the filter file (it also remembers the
+            # file's hash, so it notices when the exclusions change).
+            command += ["--filters-file", str(filter_path)]
             if resync:
                 # Initial run: build the baseline. "path2" = OneDrive wins.
                 command += ["--resync", "--resync-mode", "path2"]
         else:
             command = [self._binary, "sync", settings.remote, settings.local_path]
             command += self._flags(config.DOWNLOAD_FLAGS, settings.max_size)
+            # Plain `rclone sync` does NOT know --filters-file (that is bisync only);
+            # the same file format is read with the generic --filter-from.
+            command += ["--filter-from", str(filter_path)]
 
-        command += ["--filters-file", str(filter_path)]
         if dry_run:
             command.append("--dry-run")
         return command

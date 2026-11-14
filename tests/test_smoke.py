@@ -199,7 +199,8 @@ class SyncTests(ServerTestCase):
         self.assertIn("--max-size 10M", log)          # user's value replaced the 50M default
         self.assertNotIn("--max-size 50M", log)
         self.assertIn("--check-access", log)
-        self.assertIn("--filters-file", log)
+        self.assertIn("--filters-file", log)           # bisync's own flag
+        self.assertNotIn("--filter-from", log)
         self.assertNotIn("--resync", log)
         self.assertIn("Copied (new)", log)             # rclone output is streamed into the log
 
@@ -215,6 +216,9 @@ class SyncTests(ServerTestCase):
         self.assertIn(f"ARGS: sync onedrive: {self.local_dir}", log)   # OneDrive is the source
         self.assertNotIn("bisync", log.split("ARGS:")[1])
         self.assertIn("--max-delete 25", log)
+        self.assertIn("--filter-from", log)            # `sync` has no --filters-file
+        self.assertNotIn("--filters-file", log)
+        self.assertIn("Copied (new)", log)             # i.e. the fake rclone accepted every flag
 
     def test_dry_run_flag(self):
         self.save_settings()
