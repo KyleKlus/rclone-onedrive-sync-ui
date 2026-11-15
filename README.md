@@ -69,7 +69,7 @@ to `data/filters.txt` before every run. Two-way sync passes it as `--filters-fil
 
 ## Security: localhost only
 
-Three independent checks (see `backend/security.py`):
+Three independent checks (see `backend/server/security.py`):
 
 1. The server only binds to `127.0.0.1`, and each request's client address must be loopback.
 2. The `Host` header must be `localhost` / `127.0.0.1` (blocks DNS-rebinding).
@@ -93,7 +93,7 @@ buttons that sink when hovered and pressed.
   defined in `config.py`) into the form. Nothing is saved until you click Save setup,
   and your local folder is kept.
 - The Itim font is loaded from the jsDelivr CDN (the only external resource, allowed
-  in the Content-Security-Policy in `backend/http_server.py`). Offline, the UI falls
+  in the Content-Security-Policy in `backend/server/http_server.py`). Offline, the UI falls
   back to the system "cursive" font. The log always uses a monospace font.
 
 ## Project layout
@@ -106,13 +106,15 @@ backend/
   config.py                fixed app settings + the BISYNC_FLAGS / DOWNLOAD_FLAGS lists
   errors.py  models.py     exceptions, enums, log entry type
   setup.py                 folder-sync setup: validation + load/save setup.json
-  log_buffer.py            thread-safe in-memory log
-  rclone.py                builds rclone command lines, runs rclone, can cancel
   sync_manager.py          state machine: idle -> running -> done/failed/stopped
-  security.py              localhost guard
-  api.py                   /api/* endpoints (no HTTP details)
-  http_server.py           HTTP plumbing + static files
   app.py                   wires all of the above together
+  command/
+    rclone.py              builds rclone command lines, runs rclone, can cancel
+    log_buffer.py          thread-safe in-memory log
+  server/
+    security.py            localhost guard
+    api.py                 /api/* endpoints (no HTTP details)
+    http_server.py         HTTP plumbing + static files
 frontend/
   index.html               structure only
   css/base.css             design tokens (--hue ...), reset, page layout

@@ -21,14 +21,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.app import Application          # noqa: E402
-from backend.security import LocalhostGuard  # noqa: E402
+from backend.server.security import LocalhostGuard  # noqa: E402
 
 FAKE_RCLONE = Path(__file__).resolve().parent / "fake_rclone.py"
 
 
 class LogBufferTests(unittest.TestCase):
     def test_ansi_colour_codes_are_removed(self):
-        from backend.log_buffer import LogBuffer
+        from backend.command.log_buffer import LogBuffer
         log = LogBuffer(10)
         entry = log.append("2026/11/14 15:52:03 ERROR : \x1b[31mBisync critical error\x1b[0m")
         self.assertEqual(entry.text, "2026/11/14 15:52:03 ERROR : Bisync critical error")
