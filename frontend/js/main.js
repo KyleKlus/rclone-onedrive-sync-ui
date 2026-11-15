@@ -10,7 +10,7 @@
 import { ApiClient, ApiError } from "./api.js";
 import { ControlsView } from "./controls_view.js";
 import { LogView } from "./log_view.js";
-import { SettingsView } from "./settings_view.js";
+import { SetupView } from "./setup_view.js";
 import { StatusView } from "./status_view.js";
 
 /** How often the page asks the backend for news. */
@@ -25,9 +25,9 @@ class App {
       onStart: (options) => this.#startSync(options),
       onStop: () => this.#stopSync(),
     });
-    this.settingsView = new SettingsView({
-      onSave: (settings) => this.#saveSettings(settings),
-      onReset: () => this.#resetSettings(),
+    this.setupView = new SetupView({
+      onSave: (setup) => this.#saveSetup(setup),
+      onReset: () => this.#resetSetup(),
     });
 
     /** Id of the newest log line already shown. */
@@ -35,7 +35,7 @@ class App {
   }
 
   async start() {
-    await this.#loadSettings();
+    await this.#loadSetup();
     this.#pollLoop();
   }
 
@@ -54,7 +54,7 @@ class App {
       const status = await this.api.getStatus();
       this.statusView.render(status);
       this.controlsView.render(status);
-      this.settingsView.setLocked(status.state === "running" || status.state === "stopping");
+      this.setupView.setLocked(status.state === "running" || status.state === "stopping");
 
       const log = await this.api.getLog(this.lastLogId);
       this.logView.append(log.entries);
@@ -68,29 +68,29 @@ class App {
   // Actions triggered by the user
   // ------------------------------------------------------------------
 
-  async #loadSettings() {
+  async #loadSetup() {
     try {
-      this.settingsView.load(await this.api.getSettings());
+      this.setupView.load(await this.api.getSetup());
     } catch (error) {
-      this.settingsView.showMessage(this.#messageOf(error), "error");
+      this.setupView.showMessage(this.#messageOf(error), "error");
     }
   }
 
-  async #saveSettings(settings) {
+  async #saveSetup(setup) {
     try {
-      const saved = await this.api.saveSettings(settings);
-      this.settingsView.load(saved);  // shows what the backend actually stored
-      this.settingsView.showMessage("Settings saved.", "success");
+      const saved = await this.api.saveSetup(setup);
+      this.setupView.load(saved);  // shows what the backend actually stored
+      this.setupView.showMessage("Setup saved.", "success");
     } catch (error) {
-      this.settingsView.showMessage(this.#messageOf(error), "error");
+      this.setupView.showMessage(this.#messageOf(error), "error");
     }
   }
 
-  async #resetSettings() {
+  async #resetSetup() {
     try {
-      this.settingsView.applyDefaults(await this.api.getDefaultSettings());
+      this.setupView.applyDefaults(await this.api.getDefaultSetup());
     } catch (error) {
-      this.settingsView.showMessage(this.#messageOf(error), "error");
+      this.setupView.showMessage(this.#messageOf(error), "error");
     }
   }
 

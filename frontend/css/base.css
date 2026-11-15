@@ -124,9 +124,9 @@ code {
 }
 
 /* ---------- Page layout ----------
-   Wide screens: the status banner on top, then Settings (left) and Run (right)
+   Wide screens: the status banner on top, then Setup (left) and Run (right)
    side by side with equal height, then the log below, one screen tall.
-   Narrow screens: one column in page order (status, settings, run, log). */
+   Narrow screens: one column in page order (status, setup, run, log). */
 
 .layout {
   display: grid;
@@ -138,17 +138,17 @@ code {
 }
 
 @media (min-width: 1000px) {
-  /* Grid items stretch by default, which is what makes Settings and Run equally tall. */
+  /* Grid items stretch by default, which is what makes Setup and Run equally tall. */
   .layout {
     grid-template-columns: minmax(0, 7fr) minmax(340px, 5fr);
     grid-template-areas:
       "status   status"
-      "settings controls"
+      "setup controls"
       "log      log";
   }
 
   .status-panel   { grid-area: status; }
-  .settings-panel { grid-area: settings; }
+  .setup-panel { grid-area: setup; }
   .controls-panel { grid-area: controls; }
   .log-panel      { grid-area: log; }
 }

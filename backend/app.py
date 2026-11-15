@@ -13,7 +13,7 @@ from .api import ApiRouter
 from .http_server import WebServer
 from .log_buffer import LogBuffer
 from .rclone import FilterFile, RcloneCommandBuilder, RcloneRunner
-from .settings import SettingsStore
+from .setup import SetupStore
 from .sync_manager import SyncManager
 
 
@@ -31,17 +31,17 @@ class Application:
         data_dir.mkdir(parents=True, exist_ok=True)
 
         log_buffer = LogBuffer(config.LOG_BUFFER_CAPACITY)
-        settings_store = SettingsStore(data_dir / "settings.json")
+        setup_store = SetupStore(data_dir / "setup.json", legacy_path=data_dir / "settings.json")
 
         self.sync_manager = SyncManager(
-            settings_store=settings_store,
+            setup_store=setup_store,
             log_buffer=log_buffer,
             runner=RcloneRunner(),
             command_builder=RcloneCommandBuilder(rclone_binary),
             filter_file=FilterFile(data_dir / "filters.txt"),
             rclone_binary=rclone_binary,
         )
-        router = ApiRouter(settings_store, self.sync_manager, log_buffer)
+        router = ApiRouter(setup_store, self.sync_manager, log_buffer)
         self.web_server = WebServer(host, port, frontend_dir, router)
 
     @property

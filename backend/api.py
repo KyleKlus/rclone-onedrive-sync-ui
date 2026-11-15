@@ -8,9 +8,9 @@ returns an ``ApiResponse``. That keeps it simple to read and to test.
 Endpoints
 ---------
 GET  /api/status     Current system state.
-GET  /api/settings   Current user settings.
-GET  /api/settings/defaults   The default values (used by "Reset to defaults").
-PUT  /api/settings   Validate and save settings (not while a sync runs).
+GET  /api/setup   Current user setup.
+GET  /api/setup/defaults   The default values (used by "Reset to defaults").
+PUT  /api/setup   Validate and save setup (not while a sync runs).
 POST /api/sync       Start a job. Body: {"mode", "resync", "dry_run"}.
 POST /api/stop       Ask the running job to stop.
 GET  /api/log        Log lines. Query: ?after=<last id the client has seen>.
@@ -19,10 +19,10 @@ GET  /api/log        Log lines. Query: ?after=<last id the client has seen>.
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from .errors import SettingsError, SyncBusyError, SyncConfigError
+from .errors import SetupError, SyncBusyError, SyncConfigError
 from .log_buffer import LogBuffer
 from .models import SyncMode
-from .settings import AppSettings, SettingsStore
+from .setup import AppSetup, SetupStore
 from .sync_manager import SyncManager
 
 
@@ -39,20 +39,20 @@ class ApiRouter:
 
     def __init__(
         self,
-        settings_store: SettingsStore,
+        setup_store: SetupStore,
         sync_manager: SyncManager,
         log_buffer: LogBuffer,
     ) -> None:
-        self._settings_store = settings_store
+        self._setup_store = setup_store
         self._sync_manager = sync_manager
         self._log = log_buffer
 
         # (HTTP method, path) -> handler
         self._routes: dict = {
             ("GET", "/api/status"): self._get_status,
-            ("GET", "/api/settings"): self._get_settings,
-            ("GET", "/api/settings/defaults"): self._get_default_settings,
-            ("PUT", "/api/settings"): self._put_settings,
+            ("GET", "/api/setup"): self._get_setup,
+            ("GET", "/api/setup/defaults"): self._get_default_setup,
+            ("PUT", "/api/setup"): self._put_setup,
             ("POST", "/api/sync"): self._post_sync,
             ("POST", "/api/stop"): self._post_stop,
             ("GET", "/api/log"): self._get_log,
@@ -69,7 +69,7 @@ class ApiRouter:
 
         try:
             return handler(query, body or {})
-        except (SettingsError, SyncConfigError) as error:
+        except (SetupError, SyncConfigError) as error:
             return ApiResponse(400, {"error": str(error)})
         except SyncBusyError as error:
             return ApiResponse(409, {"error": str(error)})
@@ -81,17 +81,17 @@ class ApiRouter:
     def _get_status(self, query: dict, body: dict) -> ApiResponse:
         return ApiResponse(200, self._sync_manager.status())
 
-    def _get_settings(self, query: dict, body: dict) -> ApiResponse:
-        return ApiResponse(200, self._settings_store.get().to_dict())
+    def _get_setup(self, query: dict, body: dict) -> ApiResponse:
+        return ApiResponse(200, self._setup_store.get().to_dict())
 
-    def _get_default_settings(self, query: dict, body: dict) -> ApiResponse:
+    def _get_default_setup(self, query: dict, body: dict) -> ApiResponse:
         """The defaults live in config.py; the UI asks for them instead of copying them."""
-        return ApiResponse(200, AppSettings().to_dict())
+        return ApiResponse(200, AppSetup().to_dict())
 
-    def _put_settings(self, query: dict, body: dict) -> ApiResponse:
+    def _put_setup(self, query: dict, body: dict) -> ApiResponse:
         if self._sync_manager.is_busy():
-            raise SyncBusyError("Settings are locked while a sync is running.")
-        saved = self._settings_store.update(body)
+            raise SyncBusyError("Setup is locked while a sync is running.")
+        saved = self._setup_store.update(body)
         return ApiResponse(200, saved.to_dict())
 
     def _post_sync(self, query: dict, body: dict) -> ApiResponse:

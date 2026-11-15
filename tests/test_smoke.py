@@ -99,15 +99,15 @@ class ServerTestCase(unittest.TestCase):
         except ValueError:
             return response.status, raw
 
-    def save_settings(self, **overrides):
-        settings = {
+    def save_setup(self, **overrides):
+        setup = {
             "local_path": str(self.local_dir),
             "remote": "onedrive:",
             "max_size": "50M",
             "exclusions": ["*.tmp"],
         }
-        settings.update(overrides)
-        return self.request("PUT", "/api/settings", settings)
+        setup.update(overrides)
+        return self.request("PUT", "/api/setup", setup)
 
     def wait_for_state(self, wanted, timeout=10):
         deadline = time.time() + timeout
@@ -150,37 +150,54 @@ class SecurityTests(ServerTestCase):
         connection.close()
 
 
-class SettingsTests(ServerTestCase):
+class SetupTests(ServerTestCase):
     def test_round_trip_and_cleanup(self):
-        status, saved = self.save_settings(exclusions=["  node_modules/ ", "*.iso", "*.iso", ""])
+        status, saved = self.save_setup(exclusions=["  node_modules/ ", "*.iso", "*.iso", ""])
         self.assertEqual(status, 200)
         self.assertEqual(saved["exclusions"], ["node_modules/", "*.iso"])
-        _, loaded = self.request("GET", "/api/settings")
+        _, loaded = self.request("GET", "/api/setup")
         self.assertEqual(loaded, saved)
 
     def test_invalid_values_are_rejected(self):
         for bad in ({"max_size": "huge"}, {"remote": "nocolon"}, {"remote": "C:"},
                     {"local_path": "relative/path"}, {"exclusions": ["#comment"]}):
-            status, body = self.save_settings(**bad)
+            status, body = self.save_setup(**bad)
             self.assertEqual(status, 400, bad)
             self.assertIn("error", body)
 
     def test_defaults_endpoint(self):
-        status, defaults = self.request("GET", "/api/settings/defaults")
+        status, defaults = self.request("GET", "/api/setup/defaults")
         self.assertEqual(status, 200)
         self.assertEqual(defaults["remote"], "onedrive:")
         self.assertEqual(defaults["max_size"], "50M")
         self.assertIn("*.tmp", defaults["exclusions"])
-        # Asking for defaults must not change the saved settings.
-        self.save_settings(max_size="2G")
-        self.request("GET", "/api/settings/defaults")
-        _, current = self.request("GET", "/api/settings")
+        # Asking for defaults must not change the saved setup.
+        self.save_setup(max_size="2G")
+        self.request("GET", "/api/setup/defaults")
+        _, current = self.request("GET", "/api/setup")
         self.assertEqual(current["max_size"], "2G")
 
-    def test_settings_persist_to_disk(self):
-        self.save_settings(max_size="2G")
-        saved = json.loads((self.workdir / "data" / "settings.json").read_text())
+    def test_setup_persist_to_disk(self):
+        self.save_setup(max_size="2G")
+        saved = json.loads((self.workdir / "data" / "setup.json").read_text())
         self.assertEqual(saved["max_size"], "2G")
+
+
+class LegacySetupFileTests(unittest.TestCase):
+    """The setup file used to be called settings.json; old files must still be read."""
+
+    def test_old_file_is_read_and_new_file_is_written_on_save(self):
+        import json, tempfile
+        from backend.setup import SetupStore
+
+        with tempfile.TemporaryDirectory() as folder:
+            old, new = Path(folder) / "settings.json", Path(folder) / "setup.json"
+            old.write_text(json.dumps({"remote": "mycloud:", "max_size": "1G"}))
+            store = SetupStore(new, legacy_path=old)
+            self.assertEqual(store.get().remote, "mycloud:")
+            self.assertFalse(new.exists())
+            store.update(store.get().to_dict())
+            self.assertTrue(new.exists())
 
 
 class SyncTests(ServerTestCase):
@@ -190,12 +207,12 @@ class SyncTests(ServerTestCase):
         self.assertIn("local folder", body["error"].lower())
 
     def test_unknown_mode_is_rejected(self):
-        self.save_settings()
+        self.save_setup()
         status, _ = self.request("POST", "/api/sync", {"mode": "teleport"})
         self.assertEqual(status, 400)
 
     def test_bisync_command_and_success(self):
-        self.save_settings(max_size="10M", exclusions=["*.tmp", "node_modules/"])
+        self.save_setup(max_size="10M", exclusions=["*.tmp", "node_modules/"])
         status, _ = self.request("POST", "/api/sync", {"mode": "bisync"})
         self.assertEqual(status, 202)
         result = self.wait_for_state({"succeeded", "failed"})
@@ -219,7 +236,7 @@ class SyncTests(ServerTestCase):
         self.assertIn("- node_modules/", filters)
 
     def test_download_command(self):
-        self.save_settings()
+        self.save_setup()
         self.request("POST", "/api/sync", {"mode": "download"})
         self.assertEqual(self.wait_for_state({"succeeded", "failed"})["state"], "succeeded")
         log = self.log_text()
@@ -231,14 +248,14 @@ class SyncTests(ServerTestCase):
         self.assertIn("Copied (new)", log)             # i.e. the fake rclone accepted every flag
 
     def test_dry_run_flag(self):
-        self.save_settings()
+        self.save_setup()
         self.request("POST", "/api/sync", {"mode": "download", "dry_run": True})
         status = self.wait_for_state({"succeeded", "failed"})
         self.assertTrue(status["dry_run"])
         self.assertIn("--dry-run", self.log_text())
 
     def test_first_time_setup_creates_access_file_and_resyncs(self):
-        self.save_settings()
+        self.save_setup()
         self.request("POST", "/api/sync", {"mode": "bisync", "resync": True})
         self.assertEqual(self.wait_for_state({"succeeded", "failed"})["state"], "succeeded")
         self.assertTrue((self.local_dir / "RCLONE_TEST").exists())
@@ -248,13 +265,13 @@ class SyncTests(ServerTestCase):
         self.assertIn("--resync --resync-mode path2", log)             # OneDrive wins on baseline
 
     def test_resync_is_refused_for_download_mode(self):
-        self.save_settings()
+        self.save_setup()
         status, _ = self.request("POST", "/api/sync", {"mode": "download", "resync": True})
         self.assertEqual(status, 400)
 
     def test_failure_is_reported(self):
         os.environ["FAKE_RCLONE_MODE"] = "fail"
-        self.save_settings()
+        self.save_setup()
         self.request("POST", "/api/sync", {"mode": "bisync"})
         result = self.wait_for_state({"succeeded", "failed"})
         self.assertEqual(result["state"], "failed")
@@ -263,7 +280,7 @@ class SyncTests(ServerTestCase):
 
     def test_resync_hint_is_detected(self):
         os.environ["FAKE_RCLONE_MODE"] = "need_resync"
-        self.save_settings()
+        self.save_setup()
         self.request("POST", "/api/sync", {"mode": "bisync"})
         result = self.wait_for_state({"failed"})
         self.assertTrue(result["needs_resync"])
@@ -271,7 +288,7 @@ class SyncTests(ServerTestCase):
 
     def test_log_levels_are_detected(self):
         os.environ["FAKE_RCLONE_MODE"] = "fail"
-        self.save_settings()
+        self.save_setup()
         self.request("POST", "/api/sync", {"mode": "bisync"})
         self.wait_for_state({"failed"})
         _, log = self.request("GET", "/api/log?after=0")
@@ -279,7 +296,7 @@ class SyncTests(ServerTestCase):
         self.assertEqual(levels["2026/11/13 21:40:00 ERROR : something went wrong"], "error")
 
     def test_log_is_incremental(self):
-        self.save_settings()
+        self.save_setup()
         self.request("POST", "/api/sync", {"mode": "bisync"})
         self.wait_for_state({"succeeded"})
         _, first = self.request("GET", "/api/log?after=0")
@@ -288,28 +305,28 @@ class SyncTests(ServerTestCase):
         self.assertEqual(second["entries"], [])
         self.assertEqual(second["last_id"], first["last_id"])
 
-    def test_busy_stop_and_settings_lock(self):
+    def test_busy_stop_and_setup_lock(self):
         os.environ["FAKE_RCLONE_MODE"] = "slow"
-        self.save_settings()
+        self.save_setup()
         self.request("POST", "/api/sync", {"mode": "bisync"})
         self.assertEqual(self.wait_for_state({"running"})["state"], "running")
 
         status, _ = self.request("POST", "/api/sync", {"mode": "bisync"})
         self.assertEqual(status, 409)                      # second start refused
-        status, _ = self.save_settings(max_size="1G")
-        self.assertEqual(status, 409)                      # settings locked while running
+        status, _ = self.save_setup(max_size="1G")
+        self.assertEqual(status, 409)                      # setup locked while running
 
         self.request("POST", "/api/stop")
         result = self.wait_for_state({"cancelled", "succeeded", "failed"})
         self.assertEqual(result["state"], "cancelled")
         self.assertIn("Stopped by you", result["message"])
 
-        status, _ = self.save_settings(max_size="1G")
+        status, _ = self.save_setup(max_size="1G")
         self.assertEqual(status, 200)                      # unlocked again
 
     def test_missing_rclone_is_reported(self):
         self.app.sync_manager._rclone_binary = "definitely-not-installed-rclone"
-        self.save_settings()
+        self.save_setup()
         _, status = self.request("GET", "/api/status")
         self.assertFalse(status["rclone_available"])
         code, body = self.request("POST", "/api/sync", {"mode": "bisync"})

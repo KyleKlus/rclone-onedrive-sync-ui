@@ -1,26 +1,26 @@
 /**
- * settings_view.js
- * The "SETTINGS" panel: local folder, remote, max file size and the
+ * setup_view.js
+ * The "SETUP" panel: local folder, remote, max file size and the
  * exclusion list. Saving and resetting are delegated to callbacks.
  */
 
-export class SettingsView {
+export class SetupView {
   /**
-   * @param {{onSave: (settings: object) => void, onReset: () => void}} callbacks
+   * @param {{onSave: (setup: object) => void, onReset: () => void}} callbacks
    */
   constructor({ onSave, onReset }) {
-    this.form = document.getElementById("settings-form");
-    this.localPath = document.getElementById("setting-local-path");
-    this.remote = document.getElementById("setting-remote");
-    this.maxSize = document.getElementById("setting-max-size");
+    this.form = document.getElementById("setup-form");
+    this.localPath = document.getElementById("setup-local-path");
+    this.remote = document.getElementById("setup-remote");
+    this.maxSize = document.getElementById("setup-max-size");
     this.exclusionList = document.getElementById("exclusion-list");
     this.exclusionEmpty = document.getElementById("exclusion-empty");
     this.exclusionInput = document.getElementById("exclusion-input");
     this.exclusionAddButton = document.getElementById("exclusion-add-button");
     this.saveButton = document.getElementById("save-button");
     this.resetButton = document.getElementById("reset-button");
-    this.message = document.getElementById("settings-message");
-    this.lockNote = document.getElementById("settings-lock-note");
+    this.message = document.getElementById("setup-message");
+    this.lockNote = document.getElementById("setup-lock-note");
 
     /** The exclusion patterns currently shown (edited locally until saved). */
     this.exclusions = [];
@@ -41,12 +41,12 @@ export class SettingsView {
     });
   }
 
-  /** Fill the form with settings from the backend. */
-  load(settings) {
-    this.localPath.value = settings.local_path;
-    this.remote.value = settings.remote;
-    this.maxSize.value = settings.max_size;
-    this.exclusions = [...settings.exclusions];
+  /** Fill the form with setup from the backend. */
+  load(setup) {
+    this.localPath.value = setup.local_path;
+    this.remote.value = setup.remote;
+    this.maxSize.value = setup.max_size;
+    this.exclusions = [...setup.exclusions];
     this.#renderExclusions();
   }
 
@@ -60,10 +60,10 @@ export class SettingsView {
     this.maxSize.value = defaults.max_size;
     this.exclusions = [...defaults.exclusions];
     this.#renderExclusions();
-    this.showMessage("Defaults loaded (your local folder was kept). Click Save settings to keep them.", "success");
+    this.showMessage("Defaults loaded (your local folder was kept). Click Save setup to keep them.", "success");
   }
 
-  /** Read the form back into a settings object for the backend. */
+  /** Read the form back into a setup object for the backend. */
   collect() {
     return {
       local_path: this.localPath.value,
@@ -103,8 +103,8 @@ export class SettingsView {
       this.#renderExclusions();
       this.showMessage(
         pattern === typed
-          ? "Exclusion added. Click Save settings to keep it."
-          : `Patterns are relative to the synced folder, so "${typed}" was shortened to "${pattern}". Click Save settings to keep it.`,
+          ? "Exclusion added. Click Save setup to keep it."
+          : `Patterns are relative to the synced folder, so "${typed}" was shortened to "${pattern}". Click Save setup to keep it.`,
         "success"
       );
     }
@@ -139,7 +139,7 @@ export class SettingsView {
   #removeExclusion(pattern) {
     this.exclusions = this.exclusions.filter((existing) => existing !== pattern);
     this.#renderExclusions();
-    this.showMessage("Exclusion removed. Click Save settings to keep it.", "success");
+    this.showMessage("Exclusion removed. Click Save setup to keep it.", "success");
   }
 
   #renderExclusions() {

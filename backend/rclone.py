@@ -2,7 +2,7 @@
 Everything that talks to the rclone program, in two clearly separated halves:
 
 1. Building commands   ``FilterFile``, ``RcloneCommandBuilder``
-                       Pure functions of the settings. They only produce lists
+                       Pure functions of the setup. They only produce lists
                        of strings and never run anything, so they are easy to
                        read and to test.
 2. Running commands    ``RcloneRunner``
@@ -20,7 +20,7 @@ from typing import Callable, Optional
 from . import config
 from .errors import RcloneNotFoundError
 from .models import SyncMode
-from .settings import AppSettings
+from .setup import AppSetup
 
 # After asking rclone to stop politely, wait this long before killing it.
 _KILL_GRACE_SECONDS = 10
@@ -53,7 +53,7 @@ class FilterFile:
 
 
 class RcloneCommandBuilder:
-    """Turns the user's settings into rclone command lines."""
+    """Turns the user's setup into rclone command lines."""
 
     def __init__(self, binary: str) -> None:
         self._binary = binary
@@ -61,7 +61,7 @@ class RcloneCommandBuilder:
     def build_sync_command(
         self,
         mode: SyncMode,
-        settings: AppSettings,
+        setup: AppSetup,
         filter_path: Path,
         resync: bool = False,
         dry_run: bool = False,
@@ -71,8 +71,8 @@ class RcloneCommandBuilder:
         Download:  rclone sync   <remote> <local> ...   (OneDrive is the source)
         """
         if mode is SyncMode.BISYNC:
-            command = [self._binary, "bisync", settings.local_path, settings.remote]
-            command += self._flags(config.BISYNC_FLAGS, settings.max_size)
+            command = [self._binary, "bisync", setup.local_path, setup.remote]
+            command += self._flags(config.BISYNC_FLAGS, setup.max_size)
             # bisync has its own flag for the filter file (it also remembers the
             # file's hash, so it notices when the exclusions change).
             command += ["--filters-file", str(filter_path)]
@@ -80,8 +80,8 @@ class RcloneCommandBuilder:
                 # Initial run: build the baseline. "path2" = OneDrive wins.
                 command += ["--resync", "--resync-mode", "path2"]
         else:
-            command = [self._binary, "sync", settings.remote, settings.local_path]
-            command += self._flags(config.DOWNLOAD_FLAGS, settings.max_size)
+            command = [self._binary, "sync", setup.remote, setup.local_path]
+            command += self._flags(config.DOWNLOAD_FLAGS, setup.max_size)
             # Plain `rclone sync` does NOT know --filters-file (that is bisync only);
             # the same file format is read with the generic --filter-from.
             command += ["--filter-from", str(filter_path)]
@@ -90,12 +90,12 @@ class RcloneCommandBuilder:
             command.append("--dry-run")
         return command
 
-    def build_access_file_upload(self, settings: AppSettings, local_file: Path) -> list:
+    def build_access_file_upload(self, setup: AppSetup, local_file: Path) -> list:
         """
         Copy the RCLONE_TEST file to OneDrive unless it is already there.
         Needed once, because ``bisync --check-access`` wants it on both sides.
         """
-        target = join_remote_path(settings.remote, config.ACCESS_CHECK_FILENAME)
+        target = join_remote_path(setup.remote, config.ACCESS_CHECK_FILENAME)
         return [self._binary, "copyto", "--ignore-existing", "-v", str(local_file), target]
 
     @staticmethod

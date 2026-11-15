@@ -24,7 +24,7 @@ from .errors import RcloneNotFoundError, SyncBusyError, SyncConfigError
 from .log_buffer import LogBuffer
 from .models import SyncMode, SyncState
 from .rclone import FilterFile, RcloneCommandBuilder, RcloneRunner
-from .settings import AppSettings, SettingsStore
+from .setup import AppSetup, SetupStore
 
 _ACCESS_FILE_CONTENT = (
     "This file is used by 'rclone bisync --check-access'.\n"
@@ -41,14 +41,14 @@ class SyncManager:
 
     def __init__(
         self,
-        settings_store: SettingsStore,
+        setup_store: SetupStore,
         log_buffer: LogBuffer,
         runner: RcloneRunner,
         command_builder: RcloneCommandBuilder,
         filter_file: FilterFile,
         rclone_binary: str,
     ) -> None:
-        self._settings_store = settings_store
+        self._setup_store = setup_store
         self._log = log_buffer
         self._runner = runner
         self._command_builder = command_builder
@@ -105,8 +105,8 @@ class SyncManager:
         if resync and mode is not SyncMode.BISYNC:
             raise SyncConfigError("First-time setup only applies to two-way sync.")
 
-        settings = self._settings_store.get()
-        self._check_ready(settings)
+        setup = self._setup_store.get()
+        self._check_ready(setup)
 
         with self._lock:
             if self._state in (SyncState.RUNNING, SyncState.STOPPING):
@@ -125,7 +125,7 @@ class SyncManager:
 
         thread = threading.Thread(
             target=self._run_job,
-            args=(mode, settings, resync, dry_run),
+            args=(mode, setup, resync, dry_run),
             name="sync-job",
             daemon=True,
         )
@@ -147,19 +147,19 @@ class SyncManager:
     # The background job
     # ------------------------------------------------------------------
 
-    def _run_job(self, mode: SyncMode, settings: AppSettings, resync: bool, dry_run: bool) -> None:
+    def _run_job(self, mode: SyncMode, setup: AppSetup, resync: bool, dry_run: bool) -> None:
         """Everything that happens between 'Start' and 'finished'."""
         exit_code: Optional[int] = None
         error_message: Optional[str] = None
         try:
             self._log.append(self._describe_running(mode, resync, dry_run), level="app")
-            filter_path = self._filter_file.write(settings.exclusions)
+            filter_path = self._filter_file.write(setup.exclusions)
 
             if resync:
-                self._prepare_access_files(settings)
+                self._prepare_access_files(setup)
 
             command = self._command_builder.build_sync_command(
-                mode, settings, filter_path, resync=resync, dry_run=dry_run
+                mode, setup, filter_path, resync=resync, dry_run=dry_run
             )
             self._log.append("$ " + shlex.join(command), level="app")
             exit_code = self._runner.run(command, self._handle_rclone_line)
@@ -169,17 +169,17 @@ class SyncManager:
             error_message = f"Unexpected error: {error}"
         self._finish(exit_code, error_message)
 
-    def _prepare_access_files(self, settings: AppSettings) -> None:
+    def _prepare_access_files(self, setup: AppSetup) -> None:
         """
         Make sure the RCLONE_TEST file exists on both sides, as required by
         ``bisync --check-access``. Only done during first-time setup.
         """
-        local_file = Path(settings.local_path) / config.ACCESS_CHECK_FILENAME
+        local_file = Path(setup.local_path) / config.ACCESS_CHECK_FILENAME
         if not local_file.exists():
             local_file.write_text(_ACCESS_FILE_CONTENT, encoding="utf-8")
             self._log.append(f"Created access-check file {local_file}", level="app")
 
-        command = self._command_builder.build_access_file_upload(settings, local_file)
+        command = self._command_builder.build_access_file_upload(setup, local_file)
         self._log.append("$ " + shlex.join(command), level="app")
         exit_code = self._runner.run(command, self._handle_rclone_line)
         if exit_code != 0:
@@ -220,16 +220,16 @@ class SyncManager:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _check_ready(self, settings: AppSettings) -> None:
+    def _check_ready(self, setup: AppSetup) -> None:
         """Fail early, with a clear message, if a job could not possibly work."""
         if shutil.which(self._rclone_binary) is None:
             raise SyncConfigError(
                 f"rclone was not found ('{self._rclone_binary}'). Install it or add it to your PATH."
             )
-        if not settings.local_path:
-            raise SyncConfigError("Set the local folder in the settings first.")
-        if not Path(settings.local_path).is_dir():
-            raise SyncConfigError(f"The local folder does not exist: {settings.local_path}")
+        if not setup.local_path:
+            raise SyncConfigError("Set the local folder in the setup first.")
+        if not Path(setup.local_path).is_dir():
+            raise SyncConfigError(f"The local folder does not exist: {setup.local_path}")
 
     @staticmethod
     def _describe_running(mode: SyncMode, resync: bool, dry_run: bool) -> str:

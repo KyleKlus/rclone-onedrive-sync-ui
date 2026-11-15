@@ -2,7 +2,7 @@
    components.css
    Sections: 1 Tactile surfaces (the shared 3D effect)   2 Buttons
              3 Inputs and switches   4 Panels (cards)   5 Status banner
-             6 Mode picker   7 Settings   8 Live log
+             6 Mode picker   7 Setup   8 Live log
    Colours and sizes come from the tokens in base.css.
    ========================================================================== */
 
@@ -422,7 +422,7 @@
   gap: 0.9rem;
 }
 
-/* The Run card is stretched to the height of the Settings card; the two mode
+/* The Run card is stretched to the height of the Setup card; the two mode
    cards share the extra space instead of leaving an empty gap. */
 .controls-panel .mode-picker {
   flex: 1;
@@ -495,12 +495,12 @@
 
 
 /* ==========================================================================
-   7. SETTINGS: form layout and exclusion list
+   7. SETUP: form layout and exclusion list
    ========================================================================== */
 
 /* The form fills the card, so its footer (message + buttons) sits at the bottom
    and lines up with the bottom of the Run card next to it. */
-.settings-form {
+.setup-form {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -509,7 +509,7 @@
 
 /* Two columns when there is room (folder / remote / size  |  exclusions),
    one column when there is not. */
-.settings-grid {
+.setup-grid {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));

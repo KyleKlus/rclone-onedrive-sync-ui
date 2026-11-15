@@ -12,8 +12,8 @@ python run.py --open
 
 Then in the browser (default address `http://127.0.0.1:8765`):
 
-1. **03 / SETTINGS**: enter your local folder and your rclone remote
-   (e.g. `onedrive:`), then *SAVE SETTINGS*.
+1. **SETUP**: enter your local folder and your rclone remote
+   (e.g. `onedrive:`), then *SAVE SETUP*.
 2. **Two-way sync, first time only**: open *FIRST TIME USING TWO-WAY SYNC?* and
    press *RUN FIRST-TIME SETUP*. This places a `RCLONE_TEST` file on both sides
    (needed by `--check-access`) and builds the initial baseline.
@@ -53,7 +53,7 @@ Use **DRY RUN** to preview what a run would do without changing anything.
 
 ## Exclusions and max file size
 
-Both are set in the UI and saved to `data/settings.json`. Exclusions are written
+Both are set in the UI and saved to `data/setup.json`. Exclusions are written
 to `data/filters.txt` before every run. Two-way sync passes it as `--filters-file` (a bisync-only flag); download mode passes the same file as `--filter-from`.
 
 | Pattern | Meaning |
@@ -85,12 +85,12 @@ buttons that sink when hovered and pressed.
   (132 = green; try 210 for blue). Any element can override it, e.g. `.btn--danger`.
 - Buttons, inputs and switches share one rule in `components.css` (cards are flat on purpose).
   States only change `--lift`, so adding a new 3D element means adding its selector there.
-- Page layout (wide screens): status banner, then Settings (left) and Run (right) at equal
+- Page layout (wide screens): status banner, then Setup (left) and Run (right) at equal
   height, then the log, which is exactly one screen tall. Narrow screens use one column.
 - Secondary buttons use `.btn--secondary` (flat outline). The primary button is the raised
   green one. To try another secondary style, only that one CSS block changes.
-- **Reset to defaults** loads the defaults from the backend (`GET /api/settings/defaults`,
-  defined in `config.py`) into the form. Nothing is saved until you click Save settings,
+- **Reset to defaults** loads the defaults from the backend (`GET /api/setup/defaults`,
+  defined in `config.py`) into the form. Nothing is saved until you click Save setup,
   and your local folder is kept.
 - The Itim font is loaded from the jsDelivr CDN (the only external resource, allowed
   in the Content-Security-Policy in `backend/http_server.py`). Offline, the UI falls
@@ -103,9 +103,9 @@ run.py                     entry point (browser mode)
 run_desktop.py             entry point (native window)
 desktop/                   the native window, dock identity, single-instance lock
 backend/
-  config.py                fixed settings + the BISYNC_FLAGS / DOWNLOAD_FLAGS lists
+  config.py                fixed app settings + the BISYNC_FLAGS / DOWNLOAD_FLAGS lists
   errors.py  models.py     exceptions, enums, log entry type
-  settings.py              user settings: validation + load/save settings.json
+  setup.py                 folder-sync setup: validation + load/save setup.json
   log_buffer.py            thread-safe in-memory log
   rclone.py                builds rclone command lines, runs rclone, can cancel
   sync_manager.py          state machine: idle -> running -> done/failed/stopped
@@ -120,21 +120,11 @@ frontend/
   img/noise.svg            background texture
   img/icons/               app icons (apple-touch, 192, 512); favicon.svg/.ico and site.webmanifest sit next to index.html
   js/api.js                the only file that talks to the backend
-  js/status_view.js  controls_view.js  settings_view.js  log_view.js
+  js/status_view.js  controls_view.js  setup_view.js  log_view.js
   js/main.js               wires views to the API, polling loop
 tests/                     end-to-end tests with a fake rclone
-data/                      created at runtime (settings, filter file)
+data/                      created at runtime (setup, filter file)
 ```
-
-## Where to change things
-
-| I want to... | Edit |
-|--------------|------|
-| change rclone flags | `backend/config.py` |
-| change how commands are assembled | `backend/rclone.py` (the command-building half) |
-| add a setting | `settings.py` (+ the field in `index.html` and `settings_view.js`) |
-| restyle the UI | `frontend/css/` |
-| add an API endpoint | `api.py` (+ a method in `frontend/js/api.js`) |
 
 ## Tests
 

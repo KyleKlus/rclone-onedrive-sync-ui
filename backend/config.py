@@ -2,8 +2,8 @@
 Fixed configuration of the application.
 
 Everything in this file is decided by the developer, NOT by the user at
-runtime. Settings the user can change in the UI (local folder, exclusions,
-maximum file size, ...) live in ``settings.py`` instead.
+runtime. The setup the user can change in the UI (local folder, exclusions,
+maximum file size, ...) live in ``setup.py`` instead.
 
 If you want to tweak how rclone is called, the two flag lists below are the
 place to do it.
@@ -19,7 +19,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 
-# Everything the app writes (settings, generated filter file) goes here.
+# Everything the app writes (setup, generated filter file) goes here.
 DATA_DIR = PROJECT_ROOT / "data"
 
 # --------------------------------------------------------------------------
@@ -73,7 +73,7 @@ DOWNLOAD_FLAGS = [
 ]
 
 # --------------------------------------------------------------------------
-# User settings: default values (used until the user saves their own)
+# Setup: default values (used until the user saves their own)
 # --------------------------------------------------------------------------
 
 DEFAULT_REMOTE = "onedrive:"

@@ -23,22 +23,22 @@ export class ApiClient {
     return this.#request("GET", "/api/status");
   }
 
-  /** @returns {Promise<object>} The saved user settings. */
-  getSettings() {
-    return this.#request("GET", "/api/settings");
+  /** @returns {Promise<object>} The saved user setup. */
+  getSetup() {
+    return this.#request("GET", "/api/setup");
   }
 
-  /** @returns {Promise<object>} The default settings (the backend owns them). */
-  getDefaultSettings() {
-    return this.#request("GET", "/api/settings/defaults");
+  /** @returns {Promise<object>} The default setup (the backend owns them). */
+  getDefaultSetup() {
+    return this.#request("GET", "/api/setup/defaults");
   }
 
   /**
-   * @param {object} settings  {local_path, remote, max_size, exclusions}
-   * @returns {Promise<object>} The settings as saved (cleaned up by the backend).
+   * @param {object} setup  {local_path, remote, max_size, exclusions}
+   * @returns {Promise<object>} The setup as saved (cleaned up by the backend).
    */
-  saveSettings(settings) {
-    return this.#request("PUT", "/api/settings", settings);
+  saveSetup(setup) {
+    return this.#request("PUT", "/api/setup", setup);
   }
 
   /**

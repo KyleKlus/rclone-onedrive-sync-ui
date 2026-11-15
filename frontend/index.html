@@ -65,37 +65,37 @@
       </p>
     </section>
 
-    <!-- ========================= 2 / SETTINGS ========================= -->
-    <section class="panel settings-panel">
-      <h2 class="panel__label">Settings</h2>
+    <!-- ========================= 2 / SETUP ========================= -->
+    <section class="panel setup-panel">
+      <h2 class="panel__label">Setup</h2>
 
-      <form id="settings-form" class="settings-form" novalidate>
-        <div class="settings-grid">
+      <form id="setup-form" class="setup-form" novalidate>
+        <div class="setup-grid">
 
-          <div class="settings-col">
+          <div class="setup-col">
             <label class="field">
               <span class="field__label">Local folder</span>
-              <input class="field__input" type="text" id="setting-local-path"
+              <input class="field__input" type="text" id="setup-local-path"
                      placeholder="C:\Users\you\OneDrive  or  /home/you/OneDrive" autocomplete="off">
               <span class="field__hint">Full path of the folder on this PC.</span>
             </label>
 
             <label class="field">
               <span class="field__label">OneDrive remote</span>
-              <input class="field__input" type="text" id="setting-remote"
+              <input class="field__input" type="text" id="setup-remote"
                      placeholder="onedrive:" autocomplete="off">
               <span class="field__hint">Remote name from <code>rclone config</code>, optionally with a folder: <code>onedrive:Documents</code>.</span>
             </label>
 
             <label class="field">
               <span class="field__label">Max file size</span>
-              <input class="field__input field__input--short" type="text" id="setting-max-size"
+              <input class="field__input field__input--short" type="text" id="setup-max-size"
                      placeholder="50M" autocomplete="off">
               <span class="field__hint">Bigger files are skipped. Examples: <code>500k</code>, <code>50M</code>, <code>2G</code>, <code>off</code> (no limit).</span>
             </label>
           </div>
 
-          <div class="settings-col">
+          <div class="setup-col">
             <div class="field">
               <span class="field__label">Do not sync (exclusions)</span>
               <ul class="exclusion-list" id="exclusion-list"></ul>
@@ -123,7 +123,7 @@
         </div>
 
         <div class="form-footer">
-          <p class="form-message" id="settings-message" role="status"></p>
+          <p class="form-message" id="setup-message" role="status"></p>
           <div class="button-row button-row--end">
             <button type="button" class="btn btn--secondary" id="reset-button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.96 7.96 0 0 1 12.5 10c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.07 10.6 17.19 8 12.5 8z"/></svg>
@@ -131,11 +131,11 @@
             </button>
             <button type="submit" class="btn" id="save-button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.8 1.8 6 6L21 8l-1.8-1.8z"/></svg>
-              Save settings
+              Save setup
             </button>
           </div>
         </div>
-        <p class="field__hint" id="settings-lock-note" hidden>Settings are locked while a sync is running.</p>
+        <p class="field__hint" id="setup-lock-note" hidden>Setup is locked while a sync is running.</p>
       </form>
     </section>
 
