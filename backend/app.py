@@ -9,10 +9,10 @@ changed or replaced (e.g. by a fake in tests) without touching the others.
 from pathlib import Path
 
 from . import config
-from .api import ApiRouter
-from .http_server import WebServer
-from .log_buffer import LogBuffer
-from .rclone import FilterFile, RcloneCommandBuilder, RcloneRunner
+from .server.api import ApiRouter
+from .server.http_server import WebServer
+from .command.log_buffer import LogBuffer
+from .command.rclone import FilterFile, RcloneCommandBuilder, RcloneRunner
 from .setup import SetupStore
 from .sync_manager import SyncManager
 

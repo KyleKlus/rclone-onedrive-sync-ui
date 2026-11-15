@@ -17,10 +17,10 @@ import threading
 from pathlib import Path
 from typing import Callable, Optional
 
-from . import config
-from .errors import RcloneNotFoundError
-from .models import SyncMode
-from .setup import AppSetup
+from .. import config
+from ..errors import RcloneNotFoundError
+from ..models import SyncMode
+from ..setup import AppSetup
 
 # After asking rclone to stop politely, wait this long before killing it.
 _KILL_GRACE_SECONDS = 10

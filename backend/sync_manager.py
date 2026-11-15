@@ -21,9 +21,9 @@ from typing import Optional
 
 from . import config
 from .errors import RcloneNotFoundError, SyncBusyError, SyncConfigError
-from .log_buffer import LogBuffer
+from .command.log_buffer import LogBuffer
 from .models import SyncMode, SyncState
-from .rclone import FilterFile, RcloneCommandBuilder, RcloneRunner
+from .command.rclone import FilterFile, RcloneCommandBuilder, RcloneRunner
 from .setup import AppSetup, SetupStore
 
 _ACCESS_FILE_CONTENT = (

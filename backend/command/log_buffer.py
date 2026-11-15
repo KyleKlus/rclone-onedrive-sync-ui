@@ -11,7 +11,7 @@ from collections import deque
 from datetime import datetime
 from typing import Optional
 
-from .models import LogEntry
+from ..models import LogEntry
 
 # rclone lines look like:  "2026/11/13 21:40:00 INFO  : file.txt: Copied (new)"
 # The date and time part is optional so that bare "ERROR : ..." also matches.

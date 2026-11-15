@@ -19,11 +19,11 @@ GET  /api/log        Log lines. Query: ?after=<last id the client has seen>.
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from .errors import SetupError, SyncBusyError, SyncConfigError
-from .log_buffer import LogBuffer
-from .models import SyncMode
-from .setup import AppSetup, SetupStore
-from .sync_manager import SyncManager
+from ..errors import SetupError, SyncBusyError, SyncConfigError
+from ..command.log_buffer import LogBuffer
+from ..models import SyncMode
+from ..setup import AppSetup, SetupStore
+from ..sync_manager import SyncManager
 
 
 @dataclass(frozen=True)
