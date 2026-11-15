@@ -21,7 +21,8 @@
 
 .btn,
 .field__input,
-.switch {
+.switch,
+.mode-card__body {
   --rest: var(--rest-height);
   --lift: var(--rest);
   --surface: hsl(var(--hue), 81%, 69%);
@@ -127,7 +128,7 @@
 }
 
 .field__input {
-  --rest: 2px;
+  --rest: 1px;
   --surface: hsl(var(--hue), 40%, 95%);
   --side: hsl(var(--hue), 10%, 47%);
   width: 100%;
@@ -424,16 +425,22 @@
   pointer-events: none;
 }
 
-/* Flat card: selection is shown by colour, border and the circle marker. */
+/* Card with a barely raised edge (1px, like the input fields). Selection is shown by
+   colour, border and the circle marker. Surface and side colours come from the shared
+   recipe at the top of this file; only the differences are set here. */
 .mode-card__body {
+  --rest: 1px;
+  --surface: hsl(var(--hue), 40%, 95%);
+  --side: hsl(var(--hue), 10%, 47%);
   display: block;
   flex: 1;
   padding: 0.7rem 1rem;
-  background-color: hsl(var(--hue), 40%, 95%);
-  border: var(--border-width) solid var(--border-color);
   border-radius: 16px;
-  corner-shape: squircle;
-  transition: background-color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+  transition:
+    transform var(--duration) var(--ease),
+    box-shadow var(--duration) var(--ease),
+    background-color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease);
 }
 
 .mode-card__title {
@@ -447,10 +454,11 @@
   line-height: 1.35;
 }
 
-.mode-card:hover input:not(:disabled) + .mode-card__body { background-color: hsl(var(--hue), 84%, 90%); }
+.mode-card:hover input:not(:disabled) + .mode-card__body { --surface: hsl(var(--hue), 84%, 90%); }
 
 .mode-card input:checked + .mode-card__body {
-  background-color: hsl(var(--hue), 81%, 69%);
+  --surface: hsl(var(--hue), 81%, 69%);
+  --side: hsl(var(--hue), 36%, 47%);
   border-color: hsl(var(--hue), 36%, 40%);
 }
 
