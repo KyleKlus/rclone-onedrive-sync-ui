@@ -311,29 +311,23 @@
   gap: 1rem;
 }
 
-/* A slim line separates the state from its details: horizontal when stacked ... */
-.status-panel__details {
-  padding-top: 1rem;
-  border-top: 2px solid rgba(0, 0, 0, 0.15);
+/* The slim line between state and details: horizontal when stacked ... */
+.status-panel__divider {
+  height: 2px;
+  background: rgba(0, 0, 0, 0.15);
 }
 
 @media (min-width: 1000px) {
   .status-panel__body {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0;
+    grid-template-columns: auto 2px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 2.5rem;
   }
 
-  .status-panel__main {
-    justify-content: center;
-    padding-right: 2.5rem;
-  }
-
-  /* ... and vertical next to each other. */
-  .status-panel__details {
-    justify-content: center;
-    padding: 0 0 0 2.5rem;
-    border-top: 0;
-    border-left: 2px solid rgba(0, 0, 0, 0.15);
+  /* ... and vertical next to each other (it stretches over the full height). */
+  .status-panel__divider {
+    align-self: stretch;
+    height: auto;
   }
 
   /* Four facts in one row, the activity bar below them. */
