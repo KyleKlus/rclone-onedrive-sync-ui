@@ -8,7 +8,6 @@ pywebview is imported lazily. Without it the rest of the project (including the
 browser mode in ``run.py``) keeps working, and the user gets a clear message.
 """
 
-import os
 from pathlib import Path
 from typing import Callable
 
@@ -45,7 +44,6 @@ class DesktopWindow:
 
     def run(self) -> None:
         """Show the window. Must be called from the main thread (GUI rule)."""
-        self._apply_rendering_workarounds()
         webview = self._import_webview()
         self._announce_identity()
 
@@ -60,17 +58,6 @@ class DesktopWindow:
         webview.start(icon=str(self._icon_path))  # returns when the window is closed
 
     # ------------------------------------------------------------------
-
-    @staticmethod
-    def _apply_rendering_workarounds() -> None:
-        """
-        WebKitGTK's DMA-BUF renderer crashes on some Wayland / GPU combinations
-        (typically when the window is maximised: "corrupted double linked list").
-        Turning it off costs nothing noticeable for this UI. It must be set before
-        WebKit is loaded. ``setdefault`` lets you override it, e.g. run with
-        WEBKIT_DISABLE_DMABUF_RENDERER=0 to test the default behaviour.
-        """
-        os.environ.setdefault("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
 
     @staticmethod
     def _import_webview():

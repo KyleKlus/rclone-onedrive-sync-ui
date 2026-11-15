@@ -62,10 +62,9 @@ body {
 
   /*
    * Background: the calendar generator's two-layer gradient plus a noise texture.
-   * It scrolls WITH the page on purpose. A background that stays fixed while the
-   * content moves has to be re-composited on every scroll step, which is very slow
-   * when the window renders in software (see desktop/window.py). Here, scrolling
-   * only moves already-painted content.
+   * It scrolls WITH the page on purpose: a background that stays fixed while the
+   * content moves has to be re-composited on every scroll step, which is costly
+   * on weaker graphics setups. Here, scrolling only moves already-painted content.
    */
   background-color: #ffffff;
   background-image:
