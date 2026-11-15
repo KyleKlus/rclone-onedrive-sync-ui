@@ -22,8 +22,7 @@ from typing import Callable, Optional
 from .errors import SettingsError, SyncBusyError, SyncConfigError
 from .log_buffer import LogBuffer
 from .models import SyncMode
-from .settings import AppSettings
-from .settings_store import SettingsStore
+from .settings import AppSettings, SettingsStore
 from .sync_manager import SyncManager
 
 

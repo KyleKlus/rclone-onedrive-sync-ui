@@ -23,10 +23,8 @@ from . import config
 from .errors import RcloneNotFoundError, SyncBusyError, SyncConfigError
 from .log_buffer import LogBuffer
 from .models import SyncMode, SyncState
-from .rclone_command import FilterFile, RcloneCommandBuilder
-from .rclone_runner import RcloneRunner
-from .settings import AppSettings
-from .settings_store import SettingsStore
+from .rclone import FilterFile, RcloneCommandBuilder, RcloneRunner
+from .settings import AppSettings, SettingsStore
 
 _ACCESS_FILE_CONTENT = (
     "This file is used by 'rclone bisync --check-access'.\n"

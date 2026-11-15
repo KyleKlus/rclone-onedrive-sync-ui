@@ -12,9 +12,8 @@ from . import config
 from .api import ApiRouter
 from .http_server import WebServer
 from .log_buffer import LogBuffer
-from .rclone_command import FilterFile, RcloneCommandBuilder
-from .rclone_runner import RcloneRunner
-from .settings_store import SettingsStore
+from .rclone import FilterFile, RcloneCommandBuilder, RcloneRunner
+from .settings import SettingsStore
 from .sync_manager import SyncManager
 
 

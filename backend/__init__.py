@@ -10,11 +10,9 @@ Module overview
 config            Fixed settings: paths, port, the rclone flag lists.
 errors            Custom exception types shared by all modules.
 models            Small data types (enums, log entry).
-settings          The user-editable settings and their validation.
-settings_store    Saving / loading the settings to disk.
+settings          The user-editable settings: validation and saving / loading.
 log_buffer        Thread-safe in-memory log that the UI reads from.
-rclone_command    Builds the exact rclone command lines.
-rclone_runner     Starts rclone and streams its output line by line.
+rclone            Builds the exact rclone command lines and runs them.
 sync_manager      The state machine: idle -> running -> done / failed.
 security          The "localhost only" guard.
 api               Maps API URLs (e.g. /api/status) to actions.

@@ -105,11 +105,9 @@ desktop/                   the native window, dock identity, single-instance loc
 backend/
   config.py                fixed settings + the BISYNC_FLAGS / DOWNLOAD_FLAGS lists
   errors.py  models.py     exceptions, enums, log entry type
-  settings.py              user settings + validation
-  settings_store.py        load/save settings.json
+  settings.py              user settings: validation + load/save settings.json
   log_buffer.py            thread-safe in-memory log
-  rclone_command.py        builds rclone command lines (no execution)
-  rclone_runner.py         runs rclone, streams output, can cancel
+  rclone.py                builds rclone command lines, runs rclone, can cancel
   sync_manager.py          state machine: idle -> running -> done/failed/stopped
   security.py              localhost guard
   api.py                   /api/* endpoints (no HTTP details)
@@ -133,7 +131,7 @@ data/                      created at runtime (settings, filter file)
 | I want to... | Edit |
 |--------------|------|
 | change rclone flags | `backend/config.py` |
-| change how commands are assembled | `backend/rclone_command.py` |
+| change how commands are assembled | `backend/rclone.py` (the command-building half) |
 | add a setting | `settings.py` (+ the field in `index.html` and `settings_view.js`) |
 | restyle the UI | `frontend/css/` |
 | add an API endpoint | `api.py` (+ a method in `frontend/js/api.js`) |
