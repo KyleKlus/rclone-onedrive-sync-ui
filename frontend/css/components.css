@@ -90,22 +90,8 @@
 
 /* Variants only change the hue. */
 .btn--danger { --hue: 4; }
+.btn--plain  { --surface: hsl(var(--hue), 40%, 95%); --side: hsl(var(--hue), 10%, 47%); }
 .btn--small  { padding: 0.1rem 0.6rem; font-size: 0.9rem; --rest: 3px; }
-
-/* Secondary button: a flat outline, quieter than the raised primary button.
-   It keeps the .btn size, icon and focus ring; only the surface changes. It
-   fills softly on hover and sinks 2px when pressed.
-   (To try a different style, e.g. a pale raised button, only this block changes.) */
-.btn--secondary {
-  color: hsl(var(--hue), 55%, 18%);
-  background-color: transparent;
-  border-color: hsl(var(--hue), 36%, 40%);
-  box-shadow: none;
-  transform: none;
-}
-
-.btn--secondary:hover:not(:disabled)  { background-color: hsla(var(--hue), 81%, 69%, 0.35); }
-.btn--secondary:active:not(:disabled) { background-color: hsla(var(--hue), 81%, 69%, 0.6); transform: translateY(2px); }
 
 .button-row {
   display: flex;

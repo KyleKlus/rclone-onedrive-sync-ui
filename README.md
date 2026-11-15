@@ -87,8 +87,8 @@ buttons that sink when hovered and pressed.
   States only change `--lift`, so adding a new 3D element means adding its selector there.
 - Page layout (wide screens): status banner, then Setup (left) and Run (right) at equal
   height, then the log, which is exactly one screen tall. Narrow screens use one column.
-- Secondary buttons use `.btn--secondary` (flat outline). The primary button is the raised
-  green one. To try another secondary style, only that one CSS block changes.
+- Secondary buttons use `.btn--plain`: the same raised 3D button as the primary one, but in a
+  pale colour. The primary button is the green one. The style is one line in `components.css`.
 - **Reset to defaults** loads the defaults from the backend (`GET /api/setup/defaults`,
   defined in `config.py`) into the form. Nothing is saved until you click Save setup,
   and your local folder is kept.
