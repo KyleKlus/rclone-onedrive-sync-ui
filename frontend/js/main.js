@@ -51,7 +51,22 @@ class App {
   }
 
   start() {
+    this.#prepareEditor();
     this.#pollLoop();
+  }
+
+  /**
+   * Fill the (still hidden) setup form with the defaults once at startup. An
+   * empty form is shorter than a filled one, so without this the card would grow
+   * the first time a pair is opened. Failing here is harmless: the form is then
+   * simply filled when a pair is opened.
+   */
+  async #prepareEditor() {
+    try {
+      this.setupView.open({ ...(await this.api.getDefaultSetup()), name: "" }, null);
+    } catch {
+      /* nothing to do: the backend may simply not be reachable yet */
+    }
   }
 
   // ------------------------------------------------------------------

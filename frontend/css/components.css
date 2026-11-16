@@ -662,13 +662,15 @@
 
 /* Message on the left, buttons on the right. */
 .form-footer {
+  /* The message always has its own line above the buttons. Side by side they would
+     wrap (or not) depending on which buttons are shown, and the card would change height. */
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
 }
 
-.form-footer .form-message { flex: 1 1 14rem; }
+.form-footer .form-message { flex: none; }
 .form-footer .button-row   { margin-left: auto; }
 
 .exclusion-list {
