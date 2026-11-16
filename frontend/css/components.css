@@ -110,7 +110,7 @@
   transform: none;
   box-shadow: none;
 }
-.btn--flat.btn--icon  { padding-inline: calc(0.5rem + 1px); }
+.btn--flat.btn--icon  { width: 2rem; height: 2rem; padding: 0; }   /* square */
 .btn--flat.btn--small { padding: calc(0.1rem + 1px) calc(0.6rem + 1px); }
 .btn--flat:hover:not(:disabled) {
   background-color: rgba(255, 255, 255, 0.7);
@@ -122,11 +122,13 @@
 }
 .btn--flat[data-armed="true"] { background-color: hsl(4, 90%, 79%); }
 
-/* The power button of a folder pair: green and filled while the pair is on,
-   plain outline with a dimmed symbol while it is off. */
-.btn--power[aria-pressed="true"]  { background-color: hsl(132, 81%, 69%); border-color: rgba(0, 0, 0, 0.35); }
-.btn--power[aria-pressed="false"] { color: rgba(0, 0, 0, 0.5); }
-.btn--power[aria-pressed="true"]:hover:not(:disabled)  { background-color: hsl(132, 81%, 76%); }
+/* The power button of a folder pair. Its colour says what a click does:
+   green while the pair is off (click to switch it on), red while it is on
+   (click to switch it off). */
+.btn--power[aria-pressed="false"] { background-color: hsl(132, 81%, 69%); border-color: rgba(0, 0, 0, 0.35); }
+.btn--power[aria-pressed="true"]  { background-color: hsl(4, 85%, 72%);  border-color: rgba(0, 0, 0, 0.35); }
+.btn--power[aria-pressed="false"]:hover:not(:disabled) { background-color: hsl(132, 81%, 76%); }
+.btn--power[aria-pressed="true"]:hover:not(:disabled)  { background-color: hsl(4, 85%, 79%); }
 
 .button-row {
   display: flex;
