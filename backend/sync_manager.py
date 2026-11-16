@@ -9,9 +9,12 @@ Life cycle of a run (the overall state the UI shows)
                       --stop()-->  STOPPING  --all pairs finished-->  CANCELLED
 
 ``start()`` creates one ``PairJob`` for every ACTIVE folder pair (pairs that are
-switched off are skipped). The jobs run in parallel, with one rule: two pairs
-whose folders overlap (see path_overlap.py) never run at the same time. The
-later one waits in the state QUEUED until the earlier one is done.
+switched off are skipped) and starts them all at once, in parallel.
+
+Nothing is synced twice: when one pair lies inside another one, the outer pair
+gets the inner folder as an automatic exclusion (see pair_relations.py). Pairs
+whose folders clash in any other way cannot be saved, and a run refuses to
+start if such pairs exist anyway (e.g. from an edited pairs.json).
 
 Only one run can exist at a time. Every job runs in its own background thread
 so the web server stays responsive and the UI can watch the log live.
@@ -28,8 +31,8 @@ from .command.rclone import FilterFiles, RcloneCommandBuilder, RcloneRunner
 from .errors import SyncBusyError, SyncConfigError
 from .models import RunOptions, SyncMode, SyncState
 from .pair_job import STOPPED_MESSAGE, PairJob, describe_run, idle_runtime
+from .pair_relations import automatic_exclusions, find_conflict, lies_inside
 from .pairs import FolderPair, FolderPairStore
-from .path_overlap import setups_overlap
 
 
 class SyncManager:
@@ -70,11 +73,10 @@ class SyncManager:
     def status(self) -> dict:
         """A snapshot of everything the UI needs to describe the system state."""
         pairs = self._pair_store.all()
-        active_pairs = [pair for pair in pairs if pair.enabled]
         rclone_available = shutil.which(self._rclone_binary) is not None
 
         with self._lock:
-            described_pairs = [self._describe_pair(pair, active_pairs) for pair in pairs]
+            described_pairs = [self._describe_pair(pair, pairs) for pair in pairs]
             return {
                 "state": self._state.value,
                 "message": self._message,
@@ -105,7 +107,8 @@ class SyncManager:
         if resync and mode is not SyncMode.BISYNC:
             raise SyncConfigError("First-time setup only applies to two-way sync.")
 
-        pairs = self._pairs_to_sync()
+        all_pairs = self._pair_store.all()
+        pairs = self._pairs_to_sync(all_pairs)
         options = RunOptions(mode, resync=resync, dry_run=dry_run)
 
         with self._lock:
@@ -117,8 +120,9 @@ class SyncManager:
             self._started_at = time.time()
             self._finished_at = None
             self._stop_requested = False
-            self._jobs = {pair.id: self._create_job(pair, options) for pair in pairs}
-            self._start_ready_jobs_locked()
+            self._jobs = {pair.id: self._create_job(pair, options, all_pairs) for pair in pairs}
+            for job in self._jobs.values():
+                job.start()
 
     def stop(self) -> bool:
         """Ask every pair to stop. Returns False if nothing was running."""
@@ -136,10 +140,16 @@ class SyncManager:
         return True
 
     # ------------------------------------------------------------------
-    # Scheduling
+    # Jobs
     # ------------------------------------------------------------------
 
-    def _create_job(self, pair: FolderPair, options: RunOptions) -> PairJob:
+    def _create_job(self, pair: FolderPair, options: RunOptions, all_pairs: list) -> PairJob:
+        """
+        ``all_pairs`` includes the switched-off ones: a pair that lies inside this one is
+        always left out of it. (Otherwise switching a pair on or off would change this
+        pair's filters, and bisync demands a new first-time setup whenever they change.)
+        """
+        others = [other.setup for other in all_pairs if other.id != pair.id]
         return PairJob(
             pair,
             options,
@@ -148,36 +158,12 @@ class SyncManager:
             runner=self._runner_factory(),
             log_buffer=self._log,
             on_finished=self._job_finished,
+            automatic_exclusions=automatic_exclusions(pair.setup, others),
         )
-
-    def _start_ready_jobs_locked(self) -> None:
-        """
-        Start every waiting job that may start now.
-
-        A job may start unless its folders overlap with a pair that is running
-        or that is waiting AHEAD of it in the list. (Counting the waiting pairs
-        too keeps the order fair: nobody can overtake an earlier pair that
-        shares a folder with it.)
-        """
-        if self._stop_requested:
-            return  # nothing new may start after Stop
-
-        in_front: list = [job for job in self._jobs.values()
-                          if job.state in (SyncState.RUNNING, SyncState.STOPPING)]
-        for job in self._jobs.values():
-            if job.state is not SyncState.QUEUED:
-                continue
-            blockers = [other for other in in_front if setups_overlap(job.pair.setup, other.pair.setup)]
-            if blockers:
-                job.set_waiting_for([blocker.pair for blocker in blockers])
-            else:
-                job.start()
-            in_front.append(job)
 
     def _job_finished(self, job: PairJob) -> None:
         """Called from a job's own thread when that job is over."""
         with self._lock:
-            self._start_ready_jobs_locked()   # a finished pair may free up waiting pairs
             outcome = self._finish_run_if_done_locked()
         self._log_outcome(outcome)
 
@@ -228,18 +214,16 @@ class SyncManager:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _describe_pair(self, pair: FolderPair, active_pairs: list) -> dict:
+    def _describe_pair(self, pair: FolderPair, all_pairs: list) -> dict:
         """One entry of ``status()["pairs"]``: the pair itself plus how its sync is going."""
         job = self._jobs.get(pair.id)
         # A result only describes the pair as it was when it ran. If the pair was
         # changed afterwards (setup edited, switched on or off), show it as not run yet.
         is_current = job is not None and job.pair.setup == pair.setup and job.pair.enabled == pair.enabled
 
-        # Pairs that are switched off never run, so they cannot collide with anything.
-        overlaps_with = [
-            other.name for other in active_pairs
-            if pair.enabled and other.id != pair.id and setups_overlap(pair.setup, other.setup)
-        ]
+        # The pairs this one leaves out because they lie inside it and sync that folder themselves.
+        skips_pairs = [other.name for other in all_pairs
+                       if other.id != pair.id and lies_inside(other.setup, pair.setup)]
         return {
             "id": pair.id,
             "name": pair.name,
@@ -247,21 +231,37 @@ class SyncManager:
             "local_path": pair.setup.local_path,
             "remote": pair.setup.remote,
             **(job.snapshot() if is_current else idle_runtime()),
-            "overlaps_with": overlaps_with,
+            "skips_pairs": skips_pairs,
         }
 
-    def _pairs_to_sync(self) -> list:
+    def _pairs_to_sync(self, all_pairs: list) -> list:
         """The active pairs, after checking that a run could possibly work."""
         if shutil.which(self._rclone_binary) is None:
             raise SyncConfigError(
                 f"rclone was not found ('{self._rclone_binary}'). Install it or add it to your PATH."
             )
-        pairs = [pair for pair in self._pair_store.all() if pair.enabled]
+        pairs = [pair for pair in all_pairs if pair.enabled]
         if not pairs:
             raise SyncConfigError("There is no active folder pair. Add one, or switch one on in the list.")
         for pair in pairs:
             self._check_pair_ready(pair)
+        self._check_no_conflicts(pairs)
         return pairs
+
+    @staticmethod
+    def _check_no_conflicts(pairs: list) -> None:
+        """
+        The pairs store refuses clashing pairs, so this only fires if pairs.json was edited
+        by hand. Two such pairs would work on the same files, so no run is started.
+        """
+        for index, pair in enumerate(pairs):
+            for other in pairs[index + 1:]:
+                reason = find_conflict(pair.setup, other.setup)
+                if reason:
+                    raise SyncConfigError(
+                        f"The folder pairs '{pair.name}' and '{other.name}' clash. {reason} "
+                        "Change or switch off one of them."
+                    )
 
     @staticmethod
     def _check_pair_ready(pair: FolderPair) -> None:

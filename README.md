@@ -58,7 +58,7 @@ You can sync several local / OneDrive folder pairs. They are managed in one card
 two views in the same spot:
 
 - **Overview**: one row per pair with an on/off switch, its folders, its own state
-  (Ready / Waiting / Syncing / Done / Failed / Stopped / Inactive) and an *Edit* button.
+  (Ready / Syncing / Done / Failed / Stopped / Inactive) and an *Edit* button.
   *Add folder pair* is always there. When there are more pairs than fit, the list scrolls
   inside the card; the card itself never grows.
 - **Setup of one pair**: opens in place of the overview. The top row has the *Back* button
@@ -69,10 +69,21 @@ How a run treats the pairs:
 
 - **Switched-off pairs are skipped.** Switch a pair off in the overview to leave it out
   temporarily without deleting it.
-- **Pairs sync in parallel**, each in its own rclone process, **unless their folders
-  intersect**: the same or a nested local folder, or the same or a nested folder on the same
-  remote (a remote without a folder, `onedrive:`, is the whole drive). Such a pair waits
-  (state *Waiting*, with the reason) until the pair in front of it is done. See `backend/path_overlap.py`.
+- **Pairs sync in parallel**, each in its own rclone process.
+- **Nothing is synced twice.** How two pairs relate is decided in `backend/pair_relations.py`:
+  - *Separate* folders: nothing to do.
+  - *Nested* (a pair's local **and** OneDrive folder lie inside another pair's, at the same
+    position, e.g. `~/Docs/Photos` <-> `onedrive:Docs/Photos` inside `~/Docs` <-> `onedrive:Docs`):
+    the outer pair automatically **skips** that folder (an exclusion like `/Photos/` is added to its
+    filter file), the inner pair syncs it. The overview says so on the outer pair.
+    A remote without a folder (`onedrive:`) is the whole drive and contains every folder.
+  - Anything else that touches (identical pairs, the same OneDrive folder from two local folders,
+    the same local folder with two OneDrive folders, an inner folder at a different position on each
+    side) **cannot be saved**: the message names the pair it clashes with. A run also refuses to
+    start if such pairs exist anyway (e.g. from a hand-edited `pairs.json`).
+- The skipped folder stays out of the outer pair even while the inner pair is switched off, so the
+  outer pair's filters never change by switching. They do change when you add, remove or move a nested
+  pair, and then rclone may ask for a first-time setup (resync) for the outer pair once.
 - One failing pair does not stop the others; the overall state is *Failed* if any pair failed.
 - **Stop** stops every pair. Pairs cannot be changed while a sync is running.
 - Every log line is tagged with its pair's name, because the lines of parallel pairs mix.
@@ -137,7 +148,7 @@ backend/
   errors.py  models.py     exceptions, enums, log entry type
   setup.py                 the setup of ONE folder pair: validation
   pairs.py                 folder pairs (name, on/off, setup) + the list saved as pairs.json
-  path_overlap.py          do two pairs share a folder? (then they must not run together)
+  pair_relations.py        how two pairs relate: separate, nested (outer skips inner) or clashing
   pair_job.py              one pair's sync in its own thread, with its own state
   sync_manager.py          runs one job per active pair; overall state idle -> running -> done/failed/stopped
   app.py                   wires all of the above together

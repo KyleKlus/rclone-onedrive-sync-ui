@@ -290,22 +290,34 @@ class PairApiTests(ServerTestCase):
         for pair in status["pairs"]:
             self.assertEqual(pair["state"], "idle")
             self.assertTrue(pair["enabled"])
-            self.assertEqual(pair["overlaps_with"], [])
+            self.assertEqual(pair["skips_pairs"], [])
         self.assertEqual(status["pairs"][0]["remote"], "onedrive:A")
 
-    def test_status_names_the_pairs_that_share_folders(self):
-        self.create_pair("Whole drive", local_path=str(self.make_folder("a")), remote="onedrive:")
-        other = self.create_pair("Docs", local_path=str(self.make_folder("b")), remote="onedrive:Docs")
+    def test_a_pair_inside_another_one_is_named_in_the_outer_pairs_status(self):
+        self.create_pair("Outer", local_path=str(self.local_dir), remote="onedrive:Docs")
+        inner_dir = self.local_dir / "Photos"
+        inner_dir.mkdir()
+        inner = self.create_pair("Inner", local_path=str(inner_dir), remote="onedrive:Docs/Photos")
 
         pairs = self.pairs_by_name()
-        self.assertEqual(pairs["Whole drive"]["overlaps_with"], ["Docs"])
-        self.assertEqual(pairs["Docs"]["overlaps_with"], ["Whole drive"])
+        self.assertEqual(pairs["Outer"]["skips_pairs"], ["Inner"])
+        self.assertEqual(pairs["Inner"]["skips_pairs"], [])
 
-        # A pair that is switched off cannot collide with anything.
-        self.request("PUT", f"/api/pairs/{other['id']}/enabled", {"enabled": False})
-        pairs = self.pairs_by_name()
-        self.assertEqual(pairs["Whole drive"]["overlaps_with"], [])
-        self.assertEqual(pairs["Docs"]["overlaps_with"], [])
+        # Switching the inner pair off does not change that: its folder is still not the outer pair's job.
+        self.request("PUT", f"/api/pairs/{inner['id']}/enabled", {"enabled": False})
+        self.assertEqual(self.pairs_by_name()["Outer"]["skips_pairs"], ["Inner"])
+
+    def test_pairs_with_clashing_folders_are_refused(self):
+        self.create_pair("Docs", local_path=str(self.local_dir), remote="onedrive:Docs")
+        for clash in (
+            {"local_path": str(self.local_dir), "remote": "onedrive:Docs"},                # identical
+            {"local_path": str(self.make_folder("other")), "remote": "onedrive:Docs"},     # same OneDrive folder
+            {"local_path": str(self.local_dir), "remote": "onedrive:Other"},               # same local folder
+        ):
+            status, body = self.request("POST", "/api/pairs", self.pair_data("Clash", **clash))
+            self.assertEqual(status, 400, clash)
+            self.assertIn("clash with the folder pair 'Docs'", body["error"])
+        self.assertEqual(list(self.pairs_by_name()), ["Docs"])
 
 
 class SyncTests(ServerTestCase):
@@ -501,36 +513,73 @@ class MultiplePairsTests(ServerTestCase):
         result = self.wait_for_state({"cancelled"})
         self.assertTrue(all(pair["state"] == "cancelled" for pair in result["pairs"]))
 
-    def test_pairs_with_shared_folders_wait_for_each_other(self):
+    def nested_pairs(self):
+        """'Outer' with 'Inner' (a folder inside it, at the same spot on OneDrive) and a separate pair."""
+        outer_dir = self.make_folder("outer")
+        inner_dir = outer_dir / "inner"
+        inner_dir.mkdir()
+        outer = self.create_pair("Outer", local_path=str(outer_dir), remote="onedrive:Shared")
+        inner = self.create_pair("Inner", local_path=str(inner_dir), remote="onedrive:Shared/inner")
+        return outer, inner
+
+    def filter_file(self, pair):
+        return (self.workdir / "data" / "filters" / f"{pair['id']}.txt").read_text()
+
+    def test_a_pair_inside_another_one_is_synced_by_itself_only(self):
         os.environ["FAKE_RCLONE_MODE"] = "slow"
-        # "Inner" lies inside the OneDrive folder of "Outer", so they must not run together.
-        self.create_pair("Outer", local_path=str(self.make_folder("outer")), remote="onedrive:Shared")
-        self.create_pair("Inner", local_path=str(self.make_folder("inner")), remote="onedrive:Shared/Sub")
-        self.create_separate_pairs("Elsewhere")
+        outer, inner = self.nested_pairs()
         self.request("POST", "/api/sync", {"mode": "bisync"})
 
-        pairs = self.wait_for_pairs(lambda pairs: pairs["Outer"]["state"] == "running"
-                                    and pairs["Elsewhere"]["state"] == "running")
-        self.assertEqual(pairs["Inner"]["state"], "queued")            # waits ...
-        self.assertIn("Waiting for 'Outer'", pairs["Inner"]["message"])  # ... and says for whom
+        # No waiting: both run at the same time, because they no longer touch the same files.
+        pairs = self.wait_for_pairs(lambda pairs: all(pair["state"] == "running" for pair in pairs.values()))
+        self.assertEqual(len(pairs), 2)
+
+        self.assertIn("- /inner/", self.filter_file(outer))        # the outer pair leaves the folder out ...
+        self.assertNotIn("/inner/", self.filter_file(inner))       # ... the inner pair does not
+        self.assertIn("- *.tmp", self.filter_file(outer))          # the user's own exclusions stay
+        self.assertTrue(any(entry["source"] == "Outer" and "Skipping /inner/" in entry["text"]
+                            for entry in self.log_entries()))
 
         self.request("POST", "/api/stop")
-        result = self.wait_for_state({"cancelled"})
-        states = {pair["name"]: pair["state"] for pair in result["pairs"]}
-        self.assertEqual(states, {"Outer": "cancelled", "Inner": "cancelled", "Elsewhere": "cancelled"})
-        # The waiting pair never started, so rclone was never called for it.
-        self.assertNotIn(str(self.workdir / "inner"), self.log_text())
+        self.wait_for_state({"cancelled"})
 
-    def test_a_waiting_pair_starts_when_the_pair_in_front_is_done(self):
-        self.create_pair("First", local_path=str(self.make_folder("first")), remote="onedrive:Shared")
-        self.create_pair("Second", local_path=str(self.make_folder("second")), remote="onedrive:Shared")
+    def test_a_switched_off_inner_pair_is_still_left_out_of_the_outer_pair(self):
+        outer, inner = self.nested_pairs()
+        self.request("PUT", f"/api/pairs/{inner['id']}/enabled", {"enabled": False})
         self.request("POST", "/api/sync", {"mode": "bisync"})
-
         result = self.wait_for_state({"succeeded", "failed"})
-        self.assertEqual(result["state"], "succeeded")
-        first, second = (pair for pair in result["pairs"])
-        self.assertEqual((first["state"], second["state"]), ("succeeded", "succeeded"))
-        self.assertGreaterEqual(second["started_at"], first["finished_at"])   # strictly one after the other
+
+        states = {pair["name"]: pair["state"] for pair in result["pairs"]}
+        self.assertEqual(states, {"Outer": "succeeded", "Inner": "idle"})
+        # The outer pair's filters do not depend on the switch (bisync would demand a new first-time setup).
+        self.assertIn("- /inner/", self.filter_file(outer))
+
+    def test_the_filters_of_a_pair_do_not_change_between_runs(self):
+        outer, _inner = self.nested_pairs()
+        self.request("POST", "/api/sync", {"mode": "bisync"})
+        self.wait_for_state({"succeeded"})
+        first = self.filter_file(outer)
+        self.request("POST", "/api/sync", {"mode": "bisync"})
+        self.wait_for_state({"succeeded"})
+        self.assertEqual(self.filter_file(outer), first)
+
+    def test_a_run_refuses_clashing_pairs_that_were_edited_in_by_hand(self):
+        from backend.pairs import FolderPair
+        self.create_pair("Docs", local_path=str(self.local_dir), remote="onedrive:Docs")
+        # The store would refuse this pair, so it is slipped in the way an edited pairs.json would.
+        store = self.app.sync_manager._pair_store
+        store._pairs.append(FolderPair.from_dict(
+            self.pair_data("Hand made", local_path=str(self.make_folder("other")), remote="onedrive:Docs"),
+            pair_id="hand",
+        ))
+        status, body = self.request("POST", "/api/sync", {"mode": "bisync"})
+        self.assertEqual(status, 400)
+        self.assertIn("'Docs' and 'Hand made' clash", body["error"])
+
+        # Switching one of them off is the way out.
+        self.request("PUT", "/api/pairs/hand/enabled", {"enabled": False})
+        self.assertEqual(self.request("POST", "/api/sync", {"mode": "bisync"})[0], 202)
+        self.wait_for_state({"succeeded", "failed"})
 
     def test_pairs_that_are_switched_off_are_skipped(self):
         first, second = self.create_separate_pairs("On", "Off")

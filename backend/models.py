@@ -22,7 +22,6 @@ class SyncState(str, Enum):
     """
 
     IDLE = "idle"              # Nothing has been started yet.
-    QUEUED = "queued"          # One folder pair only: waiting for a pair with overlapping folders.
     RUNNING = "running"        # rclone is working.
     STOPPING = "stopping"      # Stop was requested, rclone is shutting down.
     SUCCEEDED = "succeeded"    # The last run finished without errors.

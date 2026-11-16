@@ -1,5 +1,5 @@
 """
-Unit tests for folder pairs: the overlap rules and the store that keeps the list.
+Unit tests for folder pairs: how pairs relate to each other and the store that keeps the list.
 No server and no rclone are involved.
 """
 
@@ -13,71 +13,115 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backend.errors import PairNotFoundError, SetupError          # noqa: E402
-from backend.pairs import FolderPairStore                          # noqa: E402
-from backend.path_overlap import (                                 # noqa: E402
-    local_paths_overlap,
-    remote_paths_overlap,
-    setups_overlap,
+from backend.pair_relations import (                               # noqa: E402
+    RelationKind,
+    automatic_exclusions,
+    find_conflict,
+    lies_inside,
+    relate,
 )
+from backend.pairs import FolderPairStore                          # noqa: E402
 from backend.setup import PairSetup                                # noqa: E402
 
 
-class LocalOverlapTests(unittest.TestCase):
-    def test_same_and_nested_folders_overlap(self):
-        self.assertTrue(local_paths_overlap("/data/docs", "/data/docs"))
-        self.assertTrue(local_paths_overlap("/data/docs", "/data/docs/work"))
-        self.assertTrue(local_paths_overlap("/data/docs/work", "/data/docs"))
-        self.assertTrue(local_paths_overlap("/", "/data/docs"))
+def pair(local, remote):
+    return PairSetup(local_path=local, remote=remote)
 
-    def test_siblings_do_not_overlap_even_with_a_shared_name_prefix(self):
-        self.assertFalse(local_paths_overlap("/data/docs", "/data/docs2"))
-        self.assertFalse(local_paths_overlap("/data/docs", "/data/pictures"))
 
-    def test_trailing_slash_and_dots_are_ignored(self):
-        self.assertTrue(local_paths_overlap("/data/docs/", "/data/docs"))
-        self.assertTrue(local_paths_overlap("/data/docs/../docs", "/data/docs"))
+OUTER = pair("/data/docs", "onedrive:Docs")
 
-    def test_an_unset_folder_overlaps_with_nothing(self):
-        self.assertFalse(local_paths_overlap("", "/data/docs"))
-        self.assertFalse(local_paths_overlap("", ""))
+
+class RelationTests(unittest.TestCase):
+    def kind(self, first, second):
+        return relate(first, second).kind
+
+    def test_unrelated_pairs_are_separate(self):
+        self.assertIs(self.kind(OUTER, pair("/data/music", "onedrive:Music")), RelationKind.SEPARATE)
+        # A shared name PREFIX is not nesting.
+        self.assertIs(self.kind(OUTER, pair("/data/docs2", "onedrive:Docs2")), RelationKind.SEPARATE)
+
+    def test_different_remotes_are_separate_clouds(self):
+        self.assertIs(self.kind(pair("/a", "onedrive:"), pair("/b", "work:")), RelationKind.SEPARATE)
+
+    def test_a_pair_with_an_unset_local_folder_relates_to_nothing(self):
+        self.assertIs(self.kind(OUTER, pair("", "onedrive:Docs")), RelationKind.SEPARATE)
+        self.assertIs(self.kind(pair("", "onedrive:"), pair("", "onedrive:")), RelationKind.SEPARATE)
+
+    def test_the_same_folders_conflict(self):
+        self.assertIs(self.kind(OUTER, pair("/data/docs/", "onedrive:docs")), RelationKind.CONFLICT)
+        self.assertIn("same local folder", relate(OUTER, OUTER).reason)
+
+    def test_nesting_at_the_same_position_is_nested(self):
+        inner = pair("/data/docs/photos/2020", "onedrive:docs/Photos/2020")
+        relation = relate(OUTER, inner)
+        self.assertIs(relation.kind, RelationKind.NESTED)
+        self.assertFalse(relation.first_is_inner)
+        self.assertEqual(relation.inner_folder, ("photos", "2020"))
+        # The other way round it is the same relation, seen from the inner pair.
+        self.assertTrue(relate(inner, OUTER).first_is_inner)
+
+    def test_the_whole_drive_contains_every_folder(self):
+        self.assertIs(self.kind(pair("/data", "onedrive:"), OUTER), RelationKind.NESTED)
+
+    def test_a_different_position_on_each_side_conflicts(self):
+        reason = find_conflict(OUTER, pair("/data/docs/photos", "onedrive:Docs/Pictures"))
+        self.assertIn("Both must match", reason)
+
+    def test_touching_on_one_side_only_conflicts(self):
+        # The same OneDrive folder from two local folders ...
+        self.assertIn("OneDrive folders overlap", find_conflict(OUTER, pair("/data/other", "onedrive:Docs")))
+        self.assertIn("OneDrive folders overlap", find_conflict(OUTER, pair("/data/other", "onedrive:Docs/Sub")))
+        # ... and the same local folder with two OneDrive folders.
+        self.assertIn("local folders overlap", find_conflict(OUTER, pair("/data/docs", "onedrive:Other")))
+        self.assertIn("local folders overlap", find_conflict(OUTER, pair("/data/docs/sub", "onedrive:Other")))
+
+    def test_one_side_the_same_and_the_other_nested_conflicts(self):
+        self.assertIsNotNone(find_conflict(OUTER, pair("/data/docs", "onedrive:Docs/Sub")))
+        self.assertIsNotNone(find_conflict(OUTER, pair("/data/docs/sub", "onedrive:Docs")))
+
+    def test_opposite_nesting_conflicts(self):
+        self.assertIn("opposite directions", find_conflict(OUTER, pair("/data", "onedrive:Docs/Sub")))
+
+    def test_trailing_slashes_dots_and_case_of_the_remote_are_ignored(self):
+        inner = pair("/data/docs/../docs/photos/", "ONEDRIVE:Docs/PHOTOS".replace("ONEDRIVE", "onedrive"))
+        self.assertIs(self.kind(OUTER, inner), RelationKind.NESTED)
 
     @unittest.skipIf(os.name == "nt", "symlinks need extra rights on Windows")
     def test_a_symlink_counts_as_the_folder_it_points_to(self):
         with tempfile.TemporaryDirectory() as folder:
             real = Path(folder) / "real"
-            real.mkdir()
+            (real / "inside").mkdir(parents=True)
             link = Path(folder) / "link"
             link.symlink_to(real)
-            self.assertTrue(local_paths_overlap(str(link), str(real / "inside")))
+            self.assertIsNotNone(find_conflict(pair(str(link), "onedrive:A"), pair(str(real), "onedrive:A")))
+            self.assertTrue(lies_inside(pair(str(real / "inside"), "onedrive:A/inside"), pair(str(link), "onedrive:A")))
 
 
-class RemoteOverlapTests(unittest.TestCase):
-    def test_whole_drive_overlaps_with_every_folder_on_it(self):
-        self.assertTrue(remote_paths_overlap("onedrive:", "onedrive:Docs"))
-        self.assertTrue(remote_paths_overlap("onedrive:", "onedrive:"))
+class AutomaticExclusionTests(unittest.TestCase):
+    def test_the_outer_pair_skips_each_inner_folder(self):
+        others = [pair("/data/docs/photos", "onedrive:Docs/Photos"),
+                  pair("/data/docs/work/old", "onedrive:docs/work/old"),
+                  pair("/data/music", "onedrive:Music")]
+        self.assertEqual(automatic_exclusions(OUTER, others), ("/photos/", "/work/old/"))
 
-    def test_nested_folders_overlap_and_case_is_ignored(self):
-        self.assertTrue(remote_paths_overlap("onedrive:Docs", "onedrive:docs/Work"))
-        self.assertTrue(remote_paths_overlap("onedrive:/Docs/", "onedrive:Docs"))
+    def test_the_inner_pair_skips_nothing(self):
+        inner = pair("/data/docs/photos", "onedrive:Docs/Photos")
+        self.assertEqual(automatic_exclusions(inner, [OUTER]), ())
 
-    def test_siblings_do_not_overlap(self):
-        self.assertFalse(remote_paths_overlap("onedrive:Docs", "onedrive:Docs2"))
-        self.assertFalse(remote_paths_overlap("onedrive:Docs", "onedrive:Photos"))
+    def test_the_result_does_not_depend_on_the_order_of_the_pairs(self):
+        a, b = pair("/data/docs/b", "onedrive:Docs/b"), pair("/data/docs/a", "onedrive:Docs/a")
+        self.assertEqual(automatic_exclusions(OUTER, [a, b]), automatic_exclusions(OUTER, [b, a]))
 
-    def test_different_remotes_never_overlap(self):
-        self.assertFalse(remote_paths_overlap("onedrive:", "work:"))
+    def test_special_characters_in_folder_names_are_escaped(self):
+        inner = pair("/data/docs/a[1]*", "onedrive:Docs/a[1]*")
+        self.assertEqual(automatic_exclusions(OUTER, [inner]), ("/a\\[1\\]\\*/",))
 
-
-class SetupsOverlapTests(unittest.TestCase):
-    def test_pairs_overlap_when_either_side_does(self):
-        base = PairSetup(local_path="/a", remote="onedrive:A")
-        same_remote_folder = PairSetup(local_path="/b", remote="onedrive:A/Sub")
-        same_local_folder = PairSetup(local_path="/a/inner", remote="onedrive:B")
-        unrelated = PairSetup(local_path="/c", remote="onedrive:C")
-
-        self.assertTrue(setups_overlap(base, same_remote_folder))
-        self.assertTrue(setups_overlap(base, same_local_folder))
-        self.assertFalse(setups_overlap(base, unrelated))
+    def test_a_pair_in_the_middle_is_both_outer_and_inner(self):
+        middle = pair("/data/docs/work", "onedrive:Docs/work")
+        deepest = pair("/data/docs/work/old", "onedrive:Docs/work/old")
+        # The top pair skips both (rclone would otherwise sync them), the middle one skips the deepest.
+        self.assertEqual(automatic_exclusions(OUTER, [middle, deepest]), ("/work/", "/work/old/"))
+        self.assertEqual(automatic_exclusions(middle, [OUTER, deepest]), ("/old/",))
 
 
 class FolderPairStoreTests(unittest.TestCase):
@@ -96,7 +140,7 @@ class FolderPairStoreTests(unittest.TestCase):
 
     @staticmethod
     def data(name="Docs", **overrides):
-        data = {"name": name, "local_path": "/data/docs", "remote": "onedrive:Docs"}
+        data = {"name": name, "local_path": f"/data/{name}", "remote": f"onedrive:{name}"}
         data.update(overrides)
         return data
 
@@ -147,6 +191,36 @@ class FolderPairStoreTests(unittest.TestCase):
             with self.assertRaises(SetupError, msg=str(bad)):
                 self.store.create(self.data(**bad))
 
+    # --- folders that clash ---
+
+    def test_clashing_pairs_are_refused_and_nested_ones_are_fine(self):
+        self.store.create(self.data("Docs"))
+        for clash in (self.data("Same", local_path="/data/Docs", remote="onedrive:Docs"),
+                      self.data("Other local", local_path="/data/elsewhere", remote="onedrive:Docs"),
+                      self.data("Other remote", local_path="/data/Docs", remote="onedrive:elsewhere"),
+                      self.data("Shifted", local_path="/data/Docs/a", remote="onedrive:Docs/b")):
+            with self.assertRaises(SetupError, msg=clash["name"]) as caught:
+                self.store.create(clash)
+            self.assertIn("'Docs'", str(caught.exception))        # says WHICH pair it clashes with
+        self.assertEqual([pair.name for pair in self.store.all()], ["Docs"])
+
+        self.store.create(self.data("Inner", local_path="/data/Docs/a", remote="onedrive:Docs/a"))
+        self.assertEqual(len(self.store.all()), 2)
+
+    def test_an_update_may_not_clash_but_may_keep_its_own_folders(self):
+        first = self.store.create(self.data("A"))
+        second = self.store.create(self.data("B"))
+        self.store.update(first.id, self.data("A", max_size="2G"))          # itself is no clash
+        with self.assertRaises(SetupError):
+            self.store.update(second.id, self.data("B", local_path="/data/A", remote="onedrive:A"))
+        self.assertEqual(self.store.get(second.id).setup.local_path, "/data/B")
+
+    def test_switched_off_pairs_still_count(self):
+        first = self.store.create(self.data("A"))
+        self.store.set_enabled(first.id, False)
+        with self.assertRaises(SetupError):
+            self.store.create(self.data("B", local_path="/data/A", remote="onedrive:A"))
+
     # --- update / switch / delete ---
 
     def test_update_keeps_id_and_switch(self):
@@ -172,8 +246,8 @@ class FolderPairStoreTests(unittest.TestCase):
                 self.store.set_enabled(pair.id, bad)
 
     def test_delete(self):
-        keep = self.store.create(self.data("Keep", remote="onedrive:Keep"))
-        gone = self.store.create(self.data("Gone", remote="onedrive:Gone"))
+        keep = self.store.create(self.data("Keep"))
+        gone = self.store.create(self.data("Gone"))
         self.store.delete(gone.id)
         self.assertEqual(self.store.all(), [keep])
         self.assertEqual(self.new_store().all(), [keep])

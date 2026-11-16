@@ -12,9 +12,9 @@ errors              Custom exception types shared by all modules.
 models              Small data types (enums, run options, log entry).
 setup               The setup of ONE folder pair (local folder, remote, exclusions ...): validation.
 pairs               Folder pairs (name, on/off switch, setup) and the list of them, saved as pairs.json.
-path_overlap        Do two folder pairs share a folder? (Such pairs must not sync at the same time.)
+pair_relations      How two pairs relate: separate, nested (outer skips inner) or clashing (not allowed).
 pair_job            One folder pair's sync in a background thread, with its own state.
-sync_manager        Runs one job per active pair, in parallel where allowed; owns the overall state.
+sync_manager        Runs one job per active pair, all in parallel; owns the overall state.
 app                 Wires everything together.
 
 command/rclone      Builds the exact rclone command lines and runs them.

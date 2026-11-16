@@ -2,16 +2,17 @@
 One folder pair's sync job.
 
 A ``PairJob`` runs rclone for exactly ONE folder pair, in its own background
-thread, and keeps the state of that pair (waiting / running / done / ...).
-``SyncManager`` creates one job per active pair and decides when each one may
-start; the job itself knows nothing about the other pairs.
+thread, and keeps the state of that pair (running / done / ...).
+``SyncManager`` creates one job per active pair and starts them all together;
+the job itself knows nothing about the other pairs. (They cannot get in each
+other's way: pairs with clashing folders cannot exist, and a pair that lies
+inside another one is excluded from it, see pair_relations.py.)
 
 Life cycle of one job
 ---------------------
-    QUEUED --start()--> RUNNING --finished--> SUCCEEDED | FAILED
-       |                   |
-       |               --request_stop()--> STOPPING --finished--> CANCELLED
-       +--request_stop()--> CANCELLED   (it never got to start)
+    IDLE --start()--> RUNNING --finished--> SUCCEEDED | FAILED
+                         |
+                  --request_stop()--> STOPPING --finished--> CANCELLED
 """
 
 import shlex
@@ -81,13 +82,17 @@ class PairJob:
         runner: RcloneRunner,
         log_buffer: LogBuffer,
         on_finished: Callable[["PairJob"], None],
+        automatic_exclusions: tuple = (),
     ) -> None:
         """
         ``runner`` must be used by this job only: every job has its own, so
         stopping one pair never touches another pair's rclone.
         ``on_finished`` is called (from the job's thread) when the job is over.
+        ``automatic_exclusions`` are filter patterns added to the user's own: the
+        folders of pairs that lie inside this one and are synced by those pairs.
         """
         self.pair = pair
+        self._automatic_exclusions = automatic_exclusions
         self._options = options
         self._command_builder = command_builder
         self._filter_files = filter_files
@@ -97,8 +102,8 @@ class PairJob:
 
         # Everything below is protected by self._lock.
         self._lock = threading.Lock()
-        self._state = SyncState.QUEUED
-        self._message = "Waiting to start."
+        self._state = SyncState.IDLE
+        self._message = "Starting."
         self._started_at: Optional[float] = None
         self._finished_at: Optional[float] = None
         self._exit_code: Optional[int] = None
@@ -140,18 +145,8 @@ class PairJob:
     # Controlled by the SyncManager
     # ------------------------------------------------------------------
 
-    def set_waiting_for(self, blockers: list) -> None:
-        """Tell the user which pairs this one is waiting for (only while it is queued)."""
-        names = ", ".join(f"'{blocker.name}'" for blocker in blockers)
-        with self._lock:
-            if self._state is SyncState.QUEUED:
-                self._message = (
-                    f"Waiting for {names} to finish. "
-                    "Pairs that share a folder cannot sync at the same time."
-                )
-
     def start(self) -> None:
-        """Begin syncing in the background. Only valid while the job is queued."""
+        """Begin syncing in the background."""
         with self._lock:
             self._state = SyncState.RUNNING
             self._started_at = time.time()
@@ -159,28 +154,14 @@ class PairJob:
         threading.Thread(target=self._run, name=f"sync-{self.pair.id}", daemon=True).start()
 
     def request_stop(self) -> None:
-        """
-        Stop this pair: a queued job is cancelled on the spot, a running one is
-        asked to exit (it reports CANCELLED itself once rclone has stopped).
-        """
+        """Ask this pair's rclone to exit. The job reports CANCELLED itself once it has stopped."""
         with self._lock:
-            if self._state is SyncState.QUEUED:
-                self._state = SyncState.CANCELLED
-                self._stop_requested = True
-                self._finished_at = time.time()
-                self._message = "Cancelled before it started."
-                was_queued = True
-            elif self._state is SyncState.RUNNING:
-                self._state = SyncState.STOPPING
-                self._stop_requested = True
-                self._message = "Stopping... waiting for rclone to exit."
-                was_queued = False
-            else:
+            if self._state is not SyncState.RUNNING:
                 return  # already stopping or finished
-        if was_queued:
-            self._log_app("Cancelled before it started.")
-        else:
-            self._runner.terminate()
+            self._state = SyncState.STOPPING
+            self._stop_requested = True
+            self._message = "Stopping... waiting for rclone to exit."
+        self._runner.terminate()
 
     # ------------------------------------------------------------------
     # The background job
@@ -193,7 +174,7 @@ class PairJob:
         error_message: Optional[str] = None
         try:
             self._log_app(describe_run(self._options))
-            filter_path = self._filter_files.write(self.pair.id, setup.exclusions)
+            filter_path = self._write_filter_file()
 
             if self._options.resync:
                 self._prepare_access_files()
@@ -216,6 +197,15 @@ class PairJob:
             self._finish(exit_code, error_message)
         finally:
             self._on_finished(self)  # the manager may now start waiting pairs
+
+    def _write_filter_file(self) -> Path:
+        """The user's exclusions plus the folders that other folder pairs sync instead."""
+        exclusions = self.pair.setup.exclusions
+        for pattern in self._automatic_exclusions:
+            if pattern not in exclusions:
+                exclusions = exclusions + (pattern,)
+                self._log_app(f"Skipping {pattern} (it belongs to another folder pair, which syncs it).")
+        return self._filter_files.write(self.pair.id, exclusions)
 
     def _prepare_access_files(self) -> None:
         """

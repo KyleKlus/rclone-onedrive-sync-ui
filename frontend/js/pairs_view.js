@@ -17,7 +17,6 @@
  */
 const BADGES = {
   idle:      ["-",   "Ready"],
-  queued:    ["...", "Waiting"],
   running:   [">",   "Syncing"],
   stopping:  ["~",   "Stopping"],
   succeeded: ["OK",  "Done"],
@@ -181,9 +180,10 @@ export class PairsView {
   #noteFor(pair) {
     if (!pair.enabled) return "Switched off. It is skipped when you start a sync.";
     if (pair.message) return pair.message;
-    if (pair.overlaps_with.length > 0) {
-      return `Shares a folder with ${pair.overlaps_with.map((name) => `"${name}"`).join(", ")}, `
-        + "so these pairs sync one after the other, not at the same time.";
+    if (pair.skips_pairs.length > 0) {
+      const names = pair.skips_pairs.map((name) => `"${name}"`).join(", ");
+      return `Skips the folder of ${names}, which lies inside this pair and is synced by ${pair.skips_pairs.length === 1 ? "that pair" : "those pairs"}. `
+        + "If rclone asks for a first-time setup after this changed, run it once.";
     }
     return "";
   }

@@ -676,7 +676,6 @@
 
 .pair-row[data-state="running"],
 .pair-row[data-state="stopping"] { --row-accent: hsl(50, 100%, 50%); }
-.pair-row[data-state="queued"]   { --row-accent: hsl(30, 100%, 55%); }
 .pair-row[data-state="succeeded"]{ --row-accent: hsl(132, 60%, 45%); }
 .pair-row[data-state="failed"]   { --row-accent: hsl(4, 80%, 55%); }
 .pair-row[data-state="cancelled"]{ --row-accent: hsl(30, 100%, 55%); }

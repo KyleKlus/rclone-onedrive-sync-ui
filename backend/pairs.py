@@ -22,6 +22,7 @@ from typing import Any, Iterable
 
 from . import config
 from .errors import PairNotFoundError, SetupError
+from .pair_relations import find_conflict
 from .setup import PairSetup
 
 # Ids end up in URLs and file names, so only harmless characters are allowed.
@@ -131,6 +132,7 @@ class FolderPairStore:
         with self._lock:
             pair = FolderPair.from_dict(data, pair_id=self._new_id())
             self._ensure_name_is_free(pair.name, ignore_id=None)
+            self._ensure_no_conflict(pair)
             self._commit(self._pairs + [pair])
             return pair
 
@@ -144,6 +146,7 @@ class FolderPairStore:
             existing = self._pairs[index]
             updated = FolderPair.from_dict(data, pair_id=existing.id, enabled=existing.enabled)
             self._ensure_name_is_free(updated.name, ignore_id=pair_id)
+            self._ensure_no_conflict(updated)
             self._commit(self._pairs[:index] + [updated] + self._pairs[index + 1:])
             return updated
 
@@ -177,6 +180,19 @@ class FolderPairStore:
         for pair in self._pairs:
             if pair.id != ignore_id and pair.name.casefold() == name.casefold():
                 raise SetupError(f"Another folder pair is already called '{pair.name}'. Pick a different name.")
+
+    def _ensure_no_conflict(self, candidate: FolderPair) -> None:
+        """
+        Refuse a pair whose folders clash with another pair's (see pair_relations.py).
+        A pair that merely lies INSIDE another one is fine: the outer pair then skips it.
+        Switched-off pairs count too, so switching them on later can never cause a clash.
+        """
+        for other in self._pairs:
+            if other.id == candidate.id:
+                continue
+            reason = find_conflict(candidate.setup, other.setup)
+            if reason:
+                raise SetupError(f"These folders clash with the folder pair '{other.name}'. {reason}")
 
     def _new_id(self) -> str:
         return self._unused_id({pair.id for pair in self._pairs})
