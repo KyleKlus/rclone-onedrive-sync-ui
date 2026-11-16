@@ -18,27 +18,49 @@ export class ApiError extends Error {
 }
 
 export class ApiClient {
-  /** @returns {Promise<object>} Current system state. */
+  /**
+   * @returns {Promise<object>} Current system state, including `pairs`: every folder
+   *   pair with its name, on/off switch, paths and its own sync state.
+   */
   getStatus() {
     return this.#request("GET", "/api/status");
   }
 
-  /** @returns {Promise<object>} The saved user settings. */
-  getSettings() {
-    return this.#request("GET", "/api/settings");
+  /** @returns {Promise<object>} The default setup of a pair (the backend owns them). */
+  getDefaultSetup() {
+    return this.#request("GET", "/api/setup/defaults");
   }
 
-  /** @returns {Promise<object>} The default settings (the backend owns them). */
-  getDefaultSettings() {
-    return this.#request("GET", "/api/settings/defaults");
+  /** @returns {Promise<object>} One folder pair with its full setup (exclusions etc.). */
+  getPair(pairId) {
+    return this.#request("GET", this.#pairPath(pairId));
   }
 
   /**
-   * @param {object} settings  {local_path, remote, max_size, exclusions}
-   * @returns {Promise<object>} The settings as saved (cleaned up by the backend).
+   * @param {object} pair  {name, local_path, remote, max_size, exclusions}
+   * @returns {Promise<object>} The pair as created (cleaned up by the backend, with its id).
    */
-  saveSettings(settings) {
-    return this.#request("PUT", "/api/settings", settings);
+  createPair(pair) {
+    return this.#request("POST", "/api/pairs", pair);
+  }
+
+  /**
+   * @param {string} pairId
+   * @param {object} pair  {name, local_path, remote, max_size, exclusions}
+   * @returns {Promise<object>} The pair as saved (cleaned up by the backend).
+   */
+  updatePair(pairId, pair) {
+    return this.#request("PUT", this.#pairPath(pairId), pair);
+  }
+
+  /** Switch a folder pair on (it is synced) or off (it is skipped). */
+  setPairEnabled(pairId, enabled) {
+    return this.#request("PUT", `${this.#pairPath(pairId)}/enabled`, { enabled });
+  }
+
+  /** Remove a folder pair for good. */
+  deletePair(pairId) {
+    return this.#request("DELETE", this.#pairPath(pairId));
   }
 
   /**
@@ -63,6 +85,10 @@ export class ApiClient {
   }
 
   // ------------------------------------------------------------------
+
+  #pairPath(pairId) {
+    return `/api/pairs/${encodeURIComponent(pairId)}`;
+  }
 
   async #request(method, path, body) {
     const options = { method, headers: {} };

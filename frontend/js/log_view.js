@@ -25,7 +25,7 @@ export class LogView {
     this.clearButton.addEventListener("click", () => this.clear());
   }
 
-  /** Add new log entries ({id, timestamp, level, text}) at the bottom. */
+  /** Add new log entries ({id, timestamp, level, text, source}) at the bottom. */
   append(entries) {
     if (entries.length === 0) return;
 
@@ -62,7 +62,15 @@ export class LogView {
 
     const text = document.createElement("span");
     text.className = "log-line__text";
-    text.textContent = (LEVEL_MARKERS[entry.level] ?? "") + entry.text;
+    text.textContent = (LEVEL_MARKERS[entry.level] ?? "") + entry.text;  // the tag is prepended below
+
+    // Pairs sync at the same time, so their lines are mixed: tag each with its pair's name.
+    if (entry.source) {
+      const source = document.createElement("span");
+      source.className = "log-line__source";
+      source.textContent = `[${entry.source}] `;
+      text.prepend(source);
+    }
 
     line.append(time, text);
     return line;

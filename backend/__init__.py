@@ -7,17 +7,20 @@ a local-only HTTP API.
 
 Module overview
 ---------------
-config            Fixed settings: paths, port, the rclone flag lists.
-errors            Custom exception types shared by all modules.
-models            Small data types (enums, log entry).
-settings          The user-editable settings and their validation.
-settings_store    Saving / loading the settings to disk.
-log_buffer        Thread-safe in-memory log that the UI reads from.
-rclone_command    Builds the exact rclone command lines.
-rclone_runner     Starts rclone and streams its output line by line.
-sync_manager      The state machine: idle -> running -> done / failed.
-security          The "localhost only" guard.
-api               Maps API URLs (e.g. /api/status) to actions.
-http_server       HTTP plumbing: security checks, JSON, static files.
-app               Wires everything together.
+config              Fixed app settings: paths, port, the rclone flag lists.
+errors              Custom exception types shared by all modules.
+models              Small data types (enums, run options, log entry).
+setup               The setup of ONE folder pair (local folder, remote, exclusions ...): validation.
+pairs               Folder pairs (name, on/off switch, setup) and the list of them, saved as pairs.json.
+pair_relations      How two pairs relate: separate, nested (outer skips inner) or clashing (not allowed).
+pair_job            One folder pair's sync in a background thread, with its own state.
+sync_manager        Runs one job per active pair, all in parallel; owns the overall state.
+app                 Wires everything together.
+
+command/rclone      Builds the exact rclone command lines and runs them.
+command/log_buffer  Thread-safe in-memory log that the UI reads from.
+
+server/security     The "localhost only" guard.
+server/api          Maps API URLs (e.g. /api/status) to actions.
+server/http_server  HTTP plumbing: security checks, JSON, static files.
 """

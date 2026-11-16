@@ -31,7 +31,8 @@ export class StatusView {
     this.factMode = document.getElementById("fact-mode");
     this.factStarted = document.getElementById("fact-started");
     this.factDuration = document.getElementById("fact-duration");
-    this.factExit = document.getElementById("fact-exit");
+    this.factPairs = document.getElementById("fact-pairs");
+    this.resyncPairs = document.getElementById("resync-pairs");
     this.connectionBadge = document.getElementById("connection-badge");
     this.connectionText = document.getElementById("connection-text");
 
@@ -49,9 +50,11 @@ export class StatusView {
 
     this.factMode.textContent = this.#describeMode(status);
     this.factStarted.textContent = status.started_at ? this.#formatClock(status.started_at) : "-";
-    this.factExit.textContent = status.exit_code === null || status.exit_code === undefined ? "-" : String(status.exit_code);
+    this.factPairs.textContent = this.#describePairs(status);
     this.#renderDuration();
 
+    const needResync = status.pairs.filter((pair) => pair.needs_resync).map((pair) => `"${pair.name}"`);
+    this.resyncPairs.textContent = needResync.join(", ");
     this.resyncNotice.hidden = !(status.needs_resync && status.state === "failed");
     this.rcloneNotice.hidden = status.rclone_available;
   }
@@ -84,6 +87,21 @@ export class StatusView {
     if (status.resync) label += " (first-time setup)";
     if (status.dry_run) label += " [dry run]";
     return label;
+  }
+
+  /** Progress of the run over the folder pairs, or how many pairs are active when nothing ran. */
+  #describePairs(status) {
+    const inRun = status.pairs.filter((pair) => pair.enabled && pair.state !== "idle");
+    if (inRun.length === 0) {
+      const active = status.pairs.filter((pair) => pair.enabled).length;
+      return `${active} active`;
+    }
+    const isBusy = status.state === "running" || status.state === "stopping";
+    const finished = inRun.filter((pair) => ["succeeded", "failed", "cancelled"].includes(pair.state));
+    const succeeded = inRun.filter((pair) => pair.state === "succeeded");
+    return isBusy
+      ? `${finished.length} of ${inRun.length} done`
+      : `${succeeded.length} of ${inRun.length} OK`;
   }
 
   #renderDuration() {

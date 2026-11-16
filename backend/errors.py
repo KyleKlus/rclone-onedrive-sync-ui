@@ -6,8 +6,12 @@ into the right HTTP status code without guessing from error messages.
 """
 
 
-class SettingsError(ValueError):
-    """The settings sent by the user are invalid (HTTP 400)."""
+class SetupError(ValueError):
+    """The setup sent by the user is invalid (HTTP 400)."""
+
+
+class PairNotFoundError(Exception):
+    """There is no folder pair with the requested id (HTTP 404)."""
 
 
 class SyncConfigError(Exception):

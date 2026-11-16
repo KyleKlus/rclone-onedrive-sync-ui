@@ -1,7 +1,15 @@
 """
-The settings the user can change in the UI, plus their validation.
+The setup of ONE folder pair (local folder, OneDrive remote, size limit,
+exclusions): what it is and how it is validated.
 
-``AppSettings`` is immutable (frozen). To change a setting you create a new
+The file has two parts:
+
+1. ``PairSetup``   an immutable value object (what the setup form edits)
+2. ``_clean_*``    validation helpers used by ``PairSetup.from_dict``
+
+Name, on/off switch and the list of all pairs live in ``pairs.py``.
+
+``PairSetup`` is immutable (frozen). To change a setup you create a new
 object, which avoids bugs where a running sync sees half-edited values.
 """
 
@@ -11,15 +19,15 @@ from dataclasses import dataclass
 from typing import Any
 
 from . import config
-from .errors import SettingsError
+from .errors import SetupError
 
 # Examples: 50M, 2G, 500k, 1.5G, or "off" for "no size limit".
 _MAX_SIZE_PATTERN = re.compile(r"^(off|\d+(\.\d+)?[bkmgtp]?)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
-class AppSettings:
-    """All user-configurable settings."""
+class PairSetup:
+    """Everything rclone needs to know to sync one folder pair."""
 
     local_path: str = ""
     remote: str = config.DEFAULT_REMOTE
@@ -31,11 +39,11 @@ class AppSettings:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_dict(cls, data: dict) -> "AppSettings":
+    def from_dict(cls, data: dict) -> "PairSetup":
         """
-        Build validated settings from a plain dictionary (JSON from the UI
-        or from the settings file). Missing keys fall back to defaults.
-        Raises ``SettingsError`` with a human-readable message if invalid.
+        Build a validated setup from a plain dictionary (JSON from the UI
+        or from the pairs file). Missing keys fall back to defaults.
+        Raises ``SetupError`` with a human-readable message if invalid.
         """
         defaults = cls()
         return cls(
@@ -60,7 +68,7 @@ class AppSettings:
 
 def _require_text(value: Any, field_label: str) -> str:
     if not isinstance(value, str):
-        raise SettingsError(f"{field_label} must be text.")
+        raise SetupError(f"{field_label} must be text.")
     return value.strip()
 
 
@@ -71,7 +79,7 @@ def _clean_local_path(value: Any) -> str:
         return ""
     path = os.path.expanduser(path)  # allow "~/OneDrive"
     if not os.path.isabs(path):
-        raise SettingsError("Local folder must be a full (absolute) path.")
+        raise SetupError("Local folder must be a full (absolute) path.")
     return path
 
 
@@ -80,19 +88,19 @@ def _clean_remote(value: Any) -> str:
     remote = _require_text(value, "OneDrive remote")
     name, separator, _folder = remote.partition(":")
     if not separator:
-        raise SettingsError(
+        raise SetupError(
             "OneDrive remote must contain a colon, e.g. 'onedrive:' or 'onedrive:Documents'."
         )
     # A single letter would be read by rclone as a Windows drive (C:), not a remote.
     if len(name) < 2:
-        raise SettingsError("OneDrive remote name must be at least 2 characters long.")
+        raise SetupError("OneDrive remote name must be at least 2 characters long.")
     return remote
 
 
 def _clean_max_size(value: Any) -> str:
     size = _require_text(value, "Maximum file size")
     if not _MAX_SIZE_PATTERN.match(size):
-        raise SettingsError(
+        raise SetupError(
             "Maximum file size must look like '50M', '2G', '500k' or 'off'."
         )
     return size
@@ -101,7 +109,7 @@ def _clean_max_size(value: Any) -> str:
 def _clean_exclusions(value: Any) -> tuple:
     """Trim patterns, drop blanks and duplicates, reject unusable ones."""
     if not isinstance(value, (list, tuple)):
-        raise SettingsError("Exclusions must be a list of patterns.")
+        raise SetupError("Exclusions must be a list of patterns.")
 
     cleaned = []
     for item in value:
@@ -109,11 +117,11 @@ def _clean_exclusions(value: Any) -> tuple:
         if not pattern:
             continue  # ignore blank entries
         if pattern[0] in "#;":
-            raise SettingsError(
+            raise SetupError(
                 f"Exclusion '{pattern}' must not start with '#' or ';' (rclone treats those as comments)."
             )
         if "\n" in pattern or "\r" in pattern or "\0" in pattern:
-            raise SettingsError("Exclusions must be a single line each.")
+            raise SetupError("Exclusions must be a single line each.")
         if pattern not in cleaned:
             cleaned.append(pattern)
     return tuple(cleaned)

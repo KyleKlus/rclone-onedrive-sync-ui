@@ -11,7 +11,7 @@ from collections import deque
 from datetime import datetime
 from typing import Optional
 
-from .models import LogEntry
+from ..models import LogEntry
 
 # rclone lines look like:  "2026/11/13 21:40:00 INFO  : file.txt: Copied (new)"
 # The date and time part is optional so that bare "ERROR : ..." also matches.
@@ -47,10 +47,13 @@ class LogBuffer:
         self._next_id = 1
         self._lock = threading.Lock()
 
-    def append(self, text: str, level: Optional[str] = None) -> LogEntry:
+    def append(self, text: str, level: Optional[str] = None, source: str = "") -> LogEntry:
         """
         Add a line. If ``level`` is omitted it is detected from the text.
         Messages written by this app itself use the level ``"app"``.
+
+        ``source`` is the name of the folder pair the line belongs to. Pairs can
+        sync at the same time, so their lines are mixed; the tag keeps them apart.
         """
         text = strip_ansi(text)
         with self._lock:
@@ -59,6 +62,7 @@ class LogBuffer:
                 timestamp=datetime.now().strftime("%H:%M:%S"),
                 level=level or detect_level(text),
                 text=text.rstrip("\r\n"),
+                source=source,
             )
             self._next_id += 1
             self._entries.append(entry)

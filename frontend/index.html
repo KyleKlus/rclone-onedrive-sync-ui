@@ -4,6 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OneDrive Sync</title>
+
+  <!-- Icons: the SVG is used by modern browsers, the .ico is the fallback. -->
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="48x48">
+  <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <meta name="theme-color" content="#70f08a">
+
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/components.css">
 </head>
@@ -25,61 +33,123 @@
     <section class="panel status-panel" id="status-panel" data-state="offline" aria-live="polite">
       <h2 class="panel__label">System state</h2>
 
-      <div class="status-panel__headline">
-        <span class="status-panel__glyph" id="state-glyph" aria-hidden="true">?</span>
-        <p class="status-panel__word" id="state-word">Connecting</p>
-      </div>
-      <p class="status-panel__description" id="state-description">Waiting for the backend ...</p>
+      <!-- Wide screens: the state on the left, activity bar and facts right next to it. -->
+      <div class="status-panel__body">
+        <div class="status-panel__main">
+          <div class="status-panel__headline">
+            <span class="status-panel__glyph" id="state-glyph" aria-hidden="true">?</span>
+            <p class="status-panel__word" id="state-word">Connecting</p>
+          </div>
+          <p class="status-panel__description" id="state-description">Waiting for the backend ...</p>
+        </div>
 
-      <div class="activity-bar" id="activity-bar" aria-hidden="true"></div>
+        <div class="status-panel__divider" aria-hidden="true"></div>
+
+        <div class="status-panel__details">
+          <dl class="facts">
+            <div class="facts__item"><dt>Mode</dt><dd id="fact-mode">-</dd></div>
+            <div class="facts__item"><dt>Started</dt><dd id="fact-started">-</dd></div>
+            <div class="facts__item"><dt>Duration</dt><dd id="fact-duration">-</dd></div>
+            <div class="facts__item"><dt>Folder pairs</dt><dd id="fact-pairs">-</dd></div>
+          </dl>
+          <div class="activity-bar" id="activity-bar" aria-hidden="true"></div>
+        </div>
+      </div>
 
       <p class="notice" id="resync-notice" hidden>
-        <strong>Action needed:</strong> rclone has no baseline for two-way sync yet.
+        <strong>Action needed:</strong> rclone has no baseline for two-way sync yet for
+        <span id="resync-pairs"></span>.
         Use <em>Run first-time setup</em> below, then start the sync again.
+        It runs for every active folder pair, so switch the other pairs off first if you only need it for these.
       </p>
       <p class="notice notice--warning" id="rclone-notice" hidden>
         <strong>rclone not found:</strong> install rclone or add it to your PATH, then reload this page.
       </p>
-
-      <dl class="facts">
-        <div class="facts__item"><dt>Mode</dt><dd id="fact-mode">-</dd></div>
-        <div class="facts__item"><dt>Started</dt><dd id="fact-started">-</dd></div>
-        <div class="facts__item"><dt>Duration</dt><dd id="fact-duration">-</dd></div>
-        <div class="facts__item"><dt>Exit code</dt><dd id="fact-exit">-</dd></div>
-      </dl>
     </section>
 
-    <!-- ========================= 2 / SETTINGS ========================= -->
-    <section class="panel settings-panel">
-      <h2 class="panel__label">Settings</h2>
+    <!-- ========================= 2 / FOLDER PAIRS ========================= -->
+    <!-- One card, two views in the same spot. data-view says which one is visible:
+         "overview" = the list of all folder pairs, "editor" = the setup of one pair.
+         The card keeps its size when switching (see components.css, section 7b). -->
+    <section class="panel setup-panel" id="setup-panel" data-view="overview">
 
-      <form id="settings-form" class="settings-form" novalidate>
-        <div class="settings-grid">
+      <!-- ---- View 1: overview of all folder pairs ---- -->
+      <div class="setup-panel__view pairs-view" id="pairs-view">
+        <div class="pairs-view__header">
+          <h2 class="panel__label">Folder pairs</h2>
+          <p class="pairs-view__count" id="pairs-count"></p>
+        </div>
 
-          <div class="settings-col">
+        <!-- The list scrolls inside this frame when there are more pairs than fit. -->
+        <div class="pair-list-frame">
+          <ul class="pair-list" id="pair-list"></ul>
+          <p class="pair-empty" id="pair-empty" hidden>
+            No folder pairs yet.<br>Add one to choose which folder on this PC is synced with which OneDrive folder.
+          </p>
+        </div>
+
+        <div class="form-footer">
+          <p class="form-message" id="pairs-message" role="status"></p>
+          <div class="button-row button-row--end">
+            <button type="button" class="btn" id="pair-add-button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg>
+              Add folder pair
+            </button>
+          </div>
+        </div>
+        <p class="field__hint" id="pairs-lock-note" hidden>Folder pairs are locked while a sync is running.</p>
+      </div>
+
+      <!-- ---- View 2: setup of ONE folder pair (new or existing) ---- -->
+      <form id="setup-form" class="setup-panel__view setup-form" novalidate>
+        <h2 class="visually-hidden">Folder pair setup</h2>
+
+        <div class="setup-header">
+          <button type="button" class="btn btn--ghost btn--icon setup-header__back" id="pair-back-button"
+                  title="Back to the folder pairs" data-armed-text="Discard changes?">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>
+            <span class="visually-hidden" id="pair-back-label">Back</span>
+          </button>
+          <input class="field__input setup-header__name" type="text" id="pair-name"
+                 placeholder="Name of this folder pair" autocomplete="off" aria-label="Folder pair name">
+        </div>
+
+        <div class="setup-grid">
+
+          <div class="setup-col">
             <label class="field">
               <span class="field__label">Local folder</span>
-              <input class="field__input" type="text" id="setting-local-path"
+              <input class="field__input" type="text" id="setup-local-path"
                      placeholder="C:\Users\you\OneDrive  or  /home/you/OneDrive" autocomplete="off">
               <span class="field__hint">Full path of the folder on this PC.</span>
             </label>
 
             <label class="field">
               <span class="field__label">OneDrive remote</span>
-              <input class="field__input" type="text" id="setting-remote"
+              <input class="field__input" type="text" id="setup-remote"
                      placeholder="onedrive:" autocomplete="off">
               <span class="field__hint">Remote name from <code>rclone config</code>, optionally with a folder: <code>onedrive:Documents</code>.</span>
             </label>
 
-            <label class="field">
-              <span class="field__label">Max file size</span>
-              <input class="field__input field__input--short" type="text" id="setting-max-size"
-                     placeholder="50M" autocomplete="off">
-              <span class="field__hint">Bigger files are skipped. Examples: <code>500k</code>, <code>50M</code>, <code>2G</code>, <code>off</code> (no limit).</span>
-            </label>
+            <div class="field">
+              <label class="field__label" for="setup-max-size">Max file size</label>
+              <div class="field__input size-field" id="size-field">
+                <input class="size-field__number" type="text" inputmode="decimal" id="setup-max-size"
+                       placeholder="50" autocomplete="off">
+                <div class="size-field__unit">
+                  <button type="button" class="size-field__button" aria-haspopup="listbox"
+                          aria-expanded="false" aria-label="Size unit">
+                    <span class="size-field__button-label">MB</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                  </button>
+                  <ul class="size-field__menu" role="listbox" aria-label="Size unit" hidden></ul>
+                </div>
+              </div>
+              <span class="field__hint">Bigger files are skipped. Pick <b>No limit</b> to sync files of any size.</span>
+            </div>
           </div>
 
-          <div class="settings-col">
+          <div class="setup-col">
             <div class="field">
               <span class="field__label">Do not sync (exclusions)</span>
               <ul class="exclusion-list" id="exclusion-list"></ul>
@@ -89,9 +159,9 @@
                 <input class="field__input" type="text" id="exclusion-input"
                        placeholder="node_modules/  or  *.iso" autocomplete="off"
                        aria-label="New exclusion pattern">
-                <button type="button" class="btn" id="exclusion-add-button">
+                <button type="button" class="exclusion-add__button"
+                        id="exclusion-add-button" title="Add exclusion" aria-label="Add exclusion">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg>
-                  Add
                 </button>
               </div>
               <span class="field__hint">
@@ -107,19 +177,24 @@
         </div>
 
         <div class="form-footer">
-          <p class="form-message" id="settings-message" role="status"></p>
+          <p class="form-message" id="setup-message" role="status"></p>
           <div class="button-row button-row--end">
-            <button type="button" class="btn btn--secondary" id="reset-button">
+            <button type="button" class="btn btn--flat" id="reset-button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.96 7.96 0 0 1 12.5 10c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.07 10.6 17.19 8 12.5 8z"/></svg>
               Reset to defaults
             </button>
+            <!-- Only for pairs that already exist. Asks for confirmation in a popup (see confirm_dialog.js). -->
+            <button type="button" class="btn btn--danger" id="delete-button" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              Delete pair
+            </button>
             <button type="submit" class="btn" id="save-button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.8 1.8 6 6L21 8l-1.8-1.8z"/></svg>
-              Save settings
+              Save setup
             </button>
           </div>
         </div>
-        <p class="field__hint" id="settings-lock-note" hidden>Settings are locked while a sync is running.</p>
+        <p class="field__hint" id="setup-lock-note" hidden>Folder pairs are locked while a sync is running.</p>
       </form>
     </section>
 
@@ -137,6 +212,7 @@
             <span class="mode-card__text">
               Changes on both sides are merged. On a conflict, OneDrive wins and
               your local version is kept with a number added to its name.
+              Applies to all active folder pairs.
             </span>
           </span>
         </label>
@@ -147,7 +223,8 @@
             <span class="mode-card__title">Download only</span>
             <span class="mode-card__text">
               Makes this PC match OneDrive. Nothing is uploaded. Files that exist
-              only on this PC are deleted (at most 25 per run).
+              only on this PC are deleted (at most 25 per folder pair and run).
+              Applies to all active folder pairs.
             </span>
           </span>
         </label>
@@ -180,9 +257,11 @@
           rclone needs a starting point before it can sync in both directions.
           This step creates a small <code>RCLONE_TEST</code> file on both sides
           (a safety check) and builds that starting point. OneDrive wins.
-          You only need to do this once, or when rclone asks for it.
+          You only need to do this once per folder pair, or when rclone asks for it.
+          It runs for every active folder pair: switch the others off in the list
+          first if you only need it for one.
         </p>
-        <button type="button" class="btn btn--secondary" id="resync-button">
+        <button type="button" class="btn btn--plain" id="resync-button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6.5 12 11V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"/></svg>
           Run first-time setup
         </button>
@@ -202,7 +281,7 @@
           </label>
           <label for="log-autoscroll">Auto-scroll</label>
         </div>
-        <button type="button" class="btn btn--small btn--secondary" id="log-clear-button">Clear view</button>
+        <button type="button" class="btn btn--small btn--flat" id="log-clear-button">Clear view</button>
       </div>
 
       <div class="log-output" id="log-output" role="log" aria-live="off" tabindex="0">
@@ -213,6 +292,19 @@
   </main>
 
   <!-- ES modules: main.js imports all the other scripts. -->
+  <!-- Popup that asks "are you sure?" (opened by confirm_dialog.js). The browser puts it on top
+       of everything, dims the page behind it and closes it with Escape. -->
+  <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <form method="dialog" class="confirm-dialog__form">
+      <h2 class="panel__label" id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="button-row button-row--end">
+        <button type="submit" class="btn btn--flat" value="cancel" id="confirm-cancel" autofocus>Cancel</button>
+        <button type="submit" class="btn btn--danger" value="confirm" id="confirm-ok"></button>
+      </div>
+    </form>
+  </dialog>
+
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

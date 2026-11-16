@@ -59,24 +59,19 @@ body {
   font-family: var(--font-display);
   font-size: var(--font-size);
   line-height: 1.4;
-  /* Same two-layer gradient as the calendar generator page. */
+
+  /*
+   * Background: the calendar generator's two-layer gradient plus a noise texture.
+   * It scrolls WITH the page on purpose: a background that stays fixed while the
+   * content moves has to be re-composited on every scroll step, which is costly
+   * on weaker graphics setups. Here, scrolling only moves already-painted content.
+   */
   background-color: #ffffff;
   background-image:
+    url(../img/noise.svg),
     linear-gradient(rgba(207, 207, 181, 0.49), rgba(75, 165, 93, 0.294)),
     linear-gradient(66deg, rgba(42, 137, 233, 0.486), rgba(183, 102, 102, 0.38));
-  background-attachment: fixed;
-}
-
-/* Noise texture over the gradient. It sits behind all content. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  filter: brightness(1.2);
-  background-image: url(../img/noise.svg);
-  background-size: 250px 250px;
+  background-size: 250px 250px, auto, auto;
 }
 
 h1, h2, p, dl, dd, ul, fieldset { margin: 0; padding: 0; }
@@ -129,9 +124,9 @@ code {
 }
 
 /* ---------- Page layout ----------
-   Wide screens: the status banner on top, then Settings (left) and Run (right)
+   Wide screens: the status banner on top, then Setup (left) and Run (right)
    side by side with equal height, then the log below, one screen tall.
-   Narrow screens: one column in page order (status, settings, run, log). */
+   Narrow screens: one column in page order (status, setup, run, log). */
 
 .layout {
   display: grid;
@@ -143,17 +138,17 @@ code {
 }
 
 @media (min-width: 1000px) {
-  /* Grid items stretch by default, which is what makes Settings and Run equally tall. */
+  /* Grid items stretch by default, which is what makes Setup and Run equally tall. */
   .layout {
     grid-template-columns: minmax(0, 7fr) minmax(340px, 5fr);
     grid-template-areas:
       "status   status"
-      "settings controls"
+      "setup controls"
       "log      log";
   }
 
   .status-panel   { grid-area: status; }
-  .settings-panel { grid-area: settings; }
+  .setup-panel { grid-area: setup; }
   .controls-panel { grid-area: controls; }
   .log-panel      { grid-area: log; }
 }
