@@ -54,6 +54,10 @@ export class PairsView {
     this.isLocked = false;
 
     this.addButton.addEventListener("click", () => onAdd());
+
+    // The list fades out at an edge while it can be scrolled further that way.
+    this.list.addEventListener("scroll", () => this.#updateFades(), { passive: true });
+    new ResizeObserver(() => this.#updateFades()).observe(this.list);
   }
 
   /**
@@ -83,6 +87,7 @@ export class PairsView {
 
     this.emptyNotice.hidden = pairs.length > 0;
     this.#renderCount(pairs);
+    this.#updateFades();
   }
 
   showMessage(text, kind = "error") {
@@ -101,6 +106,15 @@ export class PairsView {
     this.addButton.disabled = isLocked;
     this.lockNote.hidden = !isLocked;
     for (const row of this.rows.values()) row.deleteButton.disabled = isLocked;
+  }
+
+  /** Mark which edges of the list have more content behind them (the CSS draws the fade). */
+  #updateFades() {
+    const { scrollTop, scrollHeight, clientHeight } = this.list;
+    const hiddenAbove = scrollTop > 1;
+    const hiddenBelow = scrollTop + clientHeight < scrollHeight - 1;
+    this.list.toggleAttribute("data-fade-top", hiddenAbove);
+    this.list.toggleAttribute("data-fade-bottom", hiddenBelow);
   }
 
   #renderCount(pairs) {

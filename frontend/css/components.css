@@ -678,6 +678,18 @@
   overscroll-behavior: contain;
 }
 
+/* Rows fade out at an edge when there is more to scroll to in that direction
+   (pairs_view.js sets data-fade-top / data-fade-bottom). At the very top or
+   bottom nothing fades, so the first and last row are fully visible. */
+.pair-list { --fade-top: 0px; --fade-bottom: 0px; }
+.pair-list[data-fade-top]    { --fade-top: 1.6rem; }
+.pair-list[data-fade-bottom] { --fade-bottom: 1.6rem; }
+.pair-list {
+  mask-image: linear-gradient(to bottom,
+    transparent 0, #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)), transparent 100%);
+}
+
 .pair-list:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 2px; }
 
 .pair-empty {
