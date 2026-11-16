@@ -122,6 +122,20 @@
 }
 .btn--flat[data-armed="true"] { background-color: hsl(4, 90%, 79%); }
 
+/* Ghost button: no outline at all until you point at it, then a soft green tint.
+   For the quietest actions (the Back button). Same size as the flat button. */
+.btn--ghost {
+  background-color: transparent;
+  border-width: 2px;
+  border-color: transparent;
+  padding: calc(0.25rem + 1px) calc(0.75rem + 1px);
+  transform: none;
+  box-shadow: none;
+}
+.btn--ghost:hover:not(:disabled)  { background-color: hsla(var(--hue), 60%, 86%, 0.85); }
+.btn--ghost:active:not(:disabled) { background-color: hsla(var(--hue), 55%, 74%, 0.9); }
+.btn--ghost[data-armed="true"]    { background-color: hsl(4, 90%, 79%); border-color: rgba(0, 0, 0, 0.2); }
+
 /* The power button of a folder pair. Its colour says what a click does:
    green while the pair is off (click to switch it on), red while it is on
    (click to switch it off). */
@@ -682,12 +696,12 @@
    (pairs_view.js sets data-fade-top / data-fade-bottom). At the very top or
    bottom nothing fades, so the first and last row are fully visible. */
 .pair-list { --fade-top: 0px; --fade-bottom: 0px; }
-.pair-list[data-fade-top]    { --fade-top: 1.6rem; }
-.pair-list[data-fade-bottom] { --fade-bottom: 1.6rem; }
+.pair-list[data-fade-top]    { --fade-top: 1.1rem; }
+.pair-list[data-fade-bottom] { --fade-bottom: 1.1rem; }
 .pair-list {
   mask-image: linear-gradient(to bottom,
-    transparent 0, #000 var(--fade-top),
-    #000 calc(100% - var(--fade-bottom)), transparent 100%);
+    rgba(0, 0, 0, 0.2) 0, #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)), rgba(0, 0, 0, 0.2) 100%);
 }
 
 .pair-list:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 2px; }
