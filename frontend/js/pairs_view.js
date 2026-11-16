@@ -1,6 +1,6 @@
 /**
  * pairs_view.js
- * The overview of all folder pairs: one row per pair with its on/off switch,
+ * The overview of all folder pairs: one row per pair with its on/off (power) button,
  * name, folders, current state, an Edit button and a Delete button, plus the Add button.
  *
  * It only displays what the backend reports (`status.pairs`) and calls the
@@ -49,7 +49,7 @@ export class PairsView {
     this.onToggle = onToggle;
     this.confirmDialog = new ConfirmDialog();
 
-    /** The row of every pair, by pair id: {element, switchInput, name, paths, note, glyph, word, ...}. */
+    /** The row of every pair, by pair id: {element, powerButton, name, paths, note, glyph, word, ...}. */
     this.rows = new Map();
     this.isLocked = false;
 
@@ -115,13 +115,11 @@ export class PairsView {
     const element = document.createElement("li");
     element.className = "pair-row";
 
-    const switchLabel = document.createElement("label");
-    switchLabel.className = "switch";
-    const switchInput = document.createElement("input");
-    switchInput.type = "checkbox";
-    const slider = document.createElement("span");
-    slider.className = "slider";
-    switchLabel.append(switchInput, slider);
+    const powerButton = document.createElement("button");
+    powerButton.type = "button";
+    powerButton.className = "btn btn--small btn--flat btn--icon btn--power";
+    // The power symbol. (Static markup, nothing from the backend goes in here.)
+    powerButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12c0 3.87-3.13 7-7 7A6.995 6.995 0 0 1 7.58 6.58L6.17 5.17A8.932 8.932 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg>';
 
     const body = document.createElement("div");
     body.className = "pair-row__body";
@@ -155,14 +153,14 @@ export class PairsView {
     // A trash can. (Static markup, nothing from the backend goes in here.)
     deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
 
-    element.append(body, badge, switchLabel, editButton, deleteButton);
+    element.append(body, badge, powerButton, editButton, deleteButton);
 
     const row = {
-      element, switchInput, name, paths, note, glyph, word, editButton, deleteButton,
-      serverEnabled: true,   // what the backend last said; the switch is put back to this after a toggle
-      isToggling: false,     // while true, polling must not reset the switch under the user's finger
+      element, powerButton, name, paths, note, glyph, word, editButton, deleteButton,
+      serverEnabled: true,   // what the backend last said; the button is put back to this after a toggle
+      isToggling: false,     // while true, polling must not reset the button under the user's finger
     };
-    switchInput.addEventListener("change", () => this.#handleToggle(row, pairId));
+    powerButton.addEventListener("click", () => this.#handleToggle(row, pairId));
     editButton.addEventListener("click", () => this.onEdit(pairId));
     deleteButton.addEventListener("click", () => this.#handleDelete(row, pairId));
 
@@ -186,9 +184,9 @@ export class PairsView {
     setText(row.word, word);
 
     row.serverEnabled = pair.enabled;
-    if (!row.isToggling) row.switchInput.checked = pair.enabled;
-    row.switchInput.disabled = this.isLocked;
-    row.switchInput.setAttribute("aria-label", `Active: ${pair.name}`);
+    if (!row.isToggling) this.#showPower(row, pair.enabled);
+    row.powerButton.disabled = this.isLocked;
+    row.powerButton.setAttribute("aria-label", `Active: ${pair.name}`);
     row.editButton.setAttribute("aria-label", `Edit ${pair.name}`);
     row.deleteButton.setAttribute("aria-label", `Delete ${pair.name}`);
     row.deleteButton.disabled = this.isLocked;
@@ -217,14 +215,20 @@ export class PairsView {
     if (confirmed) await this.onDelete(pairId);
   }
 
+  /** The power button is "pressed" (and green) while the pair is on. */
+  #showPower(row, isOn) {
+    row.powerButton.setAttribute("aria-pressed", String(isOn));
+    row.powerButton.title = isOn ? "On - click to switch off" : "Off - click to switch on";
+  }
+
   async #handleToggle(row, pairId) {
     row.isToggling = true;
     try {
-      await this.onToggle(pairId, row.switchInput.checked);
+      await this.onToggle(pairId, !row.serverEnabled);
     } finally {
       row.isToggling = false;
       // Whatever happened, show what the backend says now (undoes the click if it failed).
-      row.switchInput.checked = row.serverEnabled;
+      this.#showPower(row, row.serverEnabled);
     }
   }
 }
