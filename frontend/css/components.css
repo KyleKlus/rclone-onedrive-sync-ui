@@ -2,7 +2,7 @@
    components.css
    Sections: 1 Tactile surfaces (the shared 3D effect)   2 Buttons
              3 Inputs and switches   4 Panels (cards)   5 Status banner
-             6 Mode picker   7 Setup   8 Live log
+             6 Mode picker   7 Setup (7b: Folder pairs)   8 Live log
    Colours and sizes come from the tokens in base.css.
    ========================================================================== */
 
@@ -582,6 +582,174 @@
 
 
 /* ==========================================================================
+   7b. FOLDER PAIRS
+   One card, two views in the SAME spot (the grid puts both into one cell):
+     data-view="overview"  the list of pairs     data-view="editor"  one pair's setup
+   The card is as tall as the taller view, so switching never makes it jump.
+   The pair list does not count towards that height (it is positioned inside
+   its frame), so adding pairs never grows the card: the list scrolls instead.
+   ========================================================================== */
+
+.setup-panel {
+  display: grid;
+  grid-template: "view" 1fr / minmax(0, 1fr);
+}
+
+.setup-panel__view {
+  grid-area: view;
+  min-width: 0;
+}
+
+/* visibility (not display) keeps the hidden view's size in the card's height, and
+   also removes it from the tab order and from screen readers. */
+.setup-panel[data-view="overview"] > .setup-form,
+.setup-panel[data-view="editor"]   > .pairs-view {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ---- Overview ---- */
+
+.pairs-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pairs-view__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+}
+
+.pairs-view__count { color: var(--heading); font-size: 0.95rem; }
+
+.pair-list-frame {
+  position: relative;
+  flex: 1;
+  min-height: 14rem;   /* the card is never smaller than this, even when the editor is shorter */
+}
+
+.pair-list {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.1rem 0.5rem 0.4rem 0.1rem;   /* room for the scrollbar and the row's lift */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pair-list:focus-visible { outline: 2px solid var(--focus-color); outline-offset: 2px; }
+
+.pair-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  padding: 1rem;
+  text-align: center;
+  line-height: 1.5;
+  border: 2px dashed rgba(0, 0, 0, 0.25);
+  border-radius: 18px;
+}
+
+.pair-empty[hidden] { display: none; }
+
+.pair-row {
+  --row-accent: #8a948c;
+  flex: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  padding: 0.6rem 0.8rem 0.6rem 0.9rem;
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-left: 8px solid var(--row-accent);   /* the state is also written out in the badge */
+  border-radius: 18px;
+  corner-shape: squircle;
+  transition: background-color var(--duration) var(--ease);
+}
+
+.pair-row[data-state="running"],
+.pair-row[data-state="stopping"] { --row-accent: hsl(50, 100%, 50%); }
+.pair-row[data-state="queued"]   { --row-accent: hsl(30, 100%, 55%); }
+.pair-row[data-state="succeeded"]{ --row-accent: hsl(132, 60%, 45%); }
+.pair-row[data-state="failed"]   { --row-accent: hsl(4, 80%, 55%); }
+.pair-row[data-state="cancelled"]{ --row-accent: hsl(30, 100%, 55%); }
+
+/* A pair that is switched off looks dimmed, but stays readable and editable. */
+.pair-row[data-state="inactive"] { background: rgba(0, 0, 0, 0.06); }
+.pair-row[data-state="inactive"] .pair-row__name,
+.pair-row[data-state="inactive"] .pair-row__paths { opacity: 0.6; }
+
+.pair-row__body { min-width: 0; }
+
+.pair-row__name {
+  font-size: 1.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pair-row__paths {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pair-row__note {
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: #3d4a3f;
+}
+
+.pair-row__note[hidden] { display: none; }
+
+.pair-row__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  background: var(--ink);
+  color: #f3f0e6;
+  border-radius: 999px;
+}
+
+.pair-row__glyph { font-family: var(--font-mono); font-weight: 700; }
+
+/* Narrow card: switch + name on top, badge and Edit button below. */
+@media (max-width: 600px) {
+  .pair-row { grid-template-columns: auto minmax(0, 1fr); }
+  .pair-row__badge,
+  .pair-row > .btn { grid-column: 2; justify-self: start; }
+}
+
+/* ---- Setup of one pair ---- */
+
+/* Back button and name on one row; the name takes all remaining width. */
+.setup-header {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.setup-header .btn { flex: none; }
+.setup-header__name { flex: 1; font-size: 1.3rem; }
+
+/* The armed state of a two-step button (see two_step_button.js). */
+.btn[data-armed="true"] { --surface: hsl(4, 90%, 79%); --side: hsl(4, 40%, 47%); }
+
+
+/* ==========================================================================
    8. LIVE LOG
    Stays dark and monospace: log text must be easy to scan.
    ========================================================================== */
@@ -631,6 +799,7 @@
 
 .log-line__time { color: #8d8d80; }
 .log-line__text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.log-line__source { color: #8fb8ff; font-weight: 700; }   /* name of the folder pair */
 
 /* Severity colours. Errors and warnings also get a text marker (see log_view.js). */
 .log-line--app     .log-line__text { color: hsl(132, 81%, 69%); font-weight: 700; }

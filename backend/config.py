@@ -2,8 +2,9 @@
 Fixed configuration of the application.
 
 Everything in this file is decided by the developer, NOT by the user at
-runtime. The setup the user can change in the UI (local folder, exclusions,
-maximum file size, ...) live in ``setup.py`` instead.
+runtime. What the user can change in the UI lives elsewhere: the setup of one
+folder pair (local folder, exclusions, maximum file size, ...) in ``setup.py``
+and the list of folder pairs in ``pairs.py``.
 
 If you want to tweak how rclone is called, the two flag lists below are the
 place to do it.
@@ -85,6 +86,17 @@ DEFAULT_EXCLUSIONS = (
     "Thumbs.db",
     "desktop.ini",
 )
+
+# --------------------------------------------------------------------------
+# Folder pairs
+# --------------------------------------------------------------------------
+
+# Names are used in the list and tag every log line, so they stay short.
+PAIR_NAME_MAX_LENGTH = 40
+
+# Older versions had exactly one folder pair and no names. When their setup
+# file is converted, that one pair gets this name.
+MIGRATED_PAIR_NAME = "Folder pair 1"
 
 # --------------------------------------------------------------------------
 # Log

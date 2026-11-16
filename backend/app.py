@@ -12,8 +12,8 @@ from . import config
 from .server.api import ApiRouter
 from .server.http_server import WebServer
 from .command.log_buffer import LogBuffer
-from .command.rclone import FilterFile, RcloneCommandBuilder, RcloneRunner
-from .setup import SetupStore
+from .command.rclone import FilterFiles, RcloneCommandBuilder, RcloneRunner
+from .pairs import FolderPairStore
 from .sync_manager import SyncManager
 
 
@@ -31,17 +31,21 @@ class Application:
         data_dir.mkdir(parents=True, exist_ok=True)
 
         log_buffer = LogBuffer(config.LOG_BUFFER_CAPACITY)
-        setup_store = SetupStore(data_dir / "setup.json", legacy_path=data_dir / "settings.json")
+        pair_store = FolderPairStore(
+            data_dir / "pairs.json",
+            # Older versions saved ONE setup in these files; it becomes the first folder pair.
+            legacy_paths=[data_dir / "setup.json", data_dir / "settings.json"],
+        )
 
         self.sync_manager = SyncManager(
-            setup_store=setup_store,
+            pair_store=pair_store,
             log_buffer=log_buffer,
-            runner=RcloneRunner(),
             command_builder=RcloneCommandBuilder(rclone_binary),
-            filter_file=FilterFile(data_dir / "filters.txt"),
+            filter_files=FilterFiles(data_dir / "filters"),
+            runner_factory=RcloneRunner,   # every folder pair's job gets its own runner
             rclone_binary=rclone_binary,
         )
-        router = ApiRouter(setup_store, self.sync_manager, log_buffer)
+        router = ApiRouter(pair_store, self.sync_manager, log_buffer)
         self.web_server = WebServer(host, port, frontend_dir, router)
 
     @property

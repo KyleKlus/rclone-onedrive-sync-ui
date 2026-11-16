@@ -78,6 +78,9 @@ class _RequestHandler(BaseHTTPRequestHandler):
     def do_PUT(self) -> None:
         self._dispatch("PUT")
 
+    def do_DELETE(self) -> None:
+        self._dispatch("DELETE")
+
     def log_message(self, format: str, *args) -> None:  # noqa: A002
         """Silence the default per-request console output."""
 

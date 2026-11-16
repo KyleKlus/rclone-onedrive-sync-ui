@@ -50,26 +50,69 @@
             <div class="facts__item"><dt>Mode</dt><dd id="fact-mode">-</dd></div>
             <div class="facts__item"><dt>Started</dt><dd id="fact-started">-</dd></div>
             <div class="facts__item"><dt>Duration</dt><dd id="fact-duration">-</dd></div>
-            <div class="facts__item"><dt>Exit code</dt><dd id="fact-exit">-</dd></div>
+            <div class="facts__item"><dt>Folder pairs</dt><dd id="fact-pairs">-</dd></div>
           </dl>
           <div class="activity-bar" id="activity-bar" aria-hidden="true"></div>
         </div>
       </div>
 
       <p class="notice" id="resync-notice" hidden>
-        <strong>Action needed:</strong> rclone has no baseline for two-way sync yet.
+        <strong>Action needed:</strong> rclone has no baseline for two-way sync yet for
+        <span id="resync-pairs"></span>.
         Use <em>Run first-time setup</em> below, then start the sync again.
+        It runs for every active folder pair, so switch the other pairs off first if you only need it for these.
       </p>
       <p class="notice notice--warning" id="rclone-notice" hidden>
         <strong>rclone not found:</strong> install rclone or add it to your PATH, then reload this page.
       </p>
     </section>
 
-    <!-- ========================= 2 / SETUP ========================= -->
-    <section class="panel setup-panel">
-      <h2 class="panel__label">Setup</h2>
+    <!-- ========================= 2 / FOLDER PAIRS ========================= -->
+    <!-- One card, two views in the same spot. data-view says which one is visible:
+         "overview" = the list of all folder pairs, "editor" = the setup of one pair.
+         The card keeps its size when switching (see components.css, section 7b). -->
+    <section class="panel setup-panel" id="setup-panel" data-view="overview">
 
-      <form id="setup-form" class="setup-form" novalidate>
+      <!-- ---- View 1: overview of all folder pairs ---- -->
+      <div class="setup-panel__view pairs-view" id="pairs-view">
+        <div class="pairs-view__header">
+          <h2 class="panel__label">Folder pairs</h2>
+          <p class="pairs-view__count" id="pairs-count"></p>
+        </div>
+
+        <!-- The list scrolls inside this frame when there are more pairs than fit. -->
+        <div class="pair-list-frame">
+          <ul class="pair-list" id="pair-list"></ul>
+          <p class="pair-empty" id="pair-empty" hidden>
+            No folder pairs yet.<br>Add one to choose which folder on this PC is synced with which OneDrive folder.
+          </p>
+        </div>
+
+        <div class="form-footer">
+          <p class="form-message" id="pairs-message" role="status"></p>
+          <div class="button-row button-row--end">
+            <button type="button" class="btn" id="pair-add-button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg>
+              Add folder pair
+            </button>
+          </div>
+        </div>
+        <p class="field__hint" id="pairs-lock-note" hidden>Folder pairs are locked while a sync is running.</p>
+      </div>
+
+      <!-- ---- View 2: setup of ONE folder pair (new or existing) ---- -->
+      <form id="setup-form" class="setup-panel__view setup-form" novalidate>
+        <h2 class="visually-hidden">Folder pair setup</h2>
+
+        <div class="setup-header">
+          <button type="button" class="btn btn--plain" id="pair-back-button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>
+            <span id="pair-back-label">Back</span>
+          </button>
+          <input class="field__input setup-header__name" type="text" id="pair-name"
+                 placeholder="Name of this folder pair" autocomplete="off" aria-label="Folder pair name">
+        </div>
+
         <div class="setup-grid">
 
           <div class="setup-col">
@@ -125,6 +168,11 @@
         <div class="form-footer">
           <p class="form-message" id="setup-message" role="status"></p>
           <div class="button-row button-row--end">
+            <!-- Only for pairs that already exist. Two clicks are needed (see two_step_button.js). -->
+            <button type="button" class="btn btn--plain btn--danger" id="delete-button" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              <span id="delete-label">Delete pair</span>
+            </button>
             <button type="button" class="btn btn--plain" id="reset-button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.96 7.96 0 0 1 12.5 10c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.07 10.6 17.19 8 12.5 8z"/></svg>
               Reset to defaults
@@ -135,7 +183,7 @@
             </button>
           </div>
         </div>
-        <p class="field__hint" id="setup-lock-note" hidden>Setup is locked while a sync is running.</p>
+        <p class="field__hint" id="setup-lock-note" hidden>Folder pairs are locked while a sync is running.</p>
       </form>
     </section>
 
@@ -153,6 +201,7 @@
             <span class="mode-card__text">
               Changes on both sides are merged. On a conflict, OneDrive wins and
               your local version is kept with a number added to its name.
+              Applies to all active folder pairs.
             </span>
           </span>
         </label>
@@ -163,7 +212,8 @@
             <span class="mode-card__title">Download only</span>
             <span class="mode-card__text">
               Makes this PC match OneDrive. Nothing is uploaded. Files that exist
-              only on this PC are deleted (at most 25 per run).
+              only on this PC are deleted (at most 25 per folder pair and run).
+              Applies to all active folder pairs.
             </span>
           </span>
         </label>
@@ -196,7 +246,9 @@
           rclone needs a starting point before it can sync in both directions.
           This step creates a small <code>RCLONE_TEST</code> file on both sides
           (a safety check) and builds that starting point. OneDrive wins.
-          You only need to do this once, or when rclone asks for it.
+          You only need to do this once per folder pair, or when rclone asks for it.
+          It runs for every active folder pair: switch the others off in the list
+          first if you only need it for one.
         </p>
         <button type="button" class="btn btn--plain" id="resync-button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6.5 12 11V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"/></svg>

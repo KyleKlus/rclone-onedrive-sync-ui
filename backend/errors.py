@@ -10,6 +10,10 @@ class SetupError(ValueError):
     """The setup sent by the user is invalid (HTTP 400)."""
 
 
+class PairNotFoundError(Exception):
+    """There is no folder pair with the requested id (HTTP 404)."""
+
+
 class SyncConfigError(Exception):
     """A sync cannot be started because the setup is incomplete (HTTP 400)."""
 

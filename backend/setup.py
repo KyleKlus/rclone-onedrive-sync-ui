@@ -1,24 +1,22 @@
 """
-Everything about the folder-sync setup (local folder, OneDrive remote, size limit,
-exclusions): what it is, how it is validated and how it is saved.
+The setup of ONE folder pair (local folder, OneDrive remote, size limit,
+exclusions): what it is and how it is validated.
 
-The file has three parts, from the inside out:
+The file has two parts:
 
-1. ``AppSetup``    an immutable value object (what the UI edits)
-2. ``_clean_*``    validation helpers used by ``AppSetup.from_dict``
-3. ``SetupStore``  keeps the current ``AppSetup`` and persists it as JSON
+1. ``PairSetup``   an immutable value object (what the setup form edits)
+2. ``_clean_*``    validation helpers used by ``PairSetup.from_dict``
 
-``AppSetup`` is immutable (frozen). To change the setup you create a new
+Name, on/off switch and the list of all pairs live in ``pairs.py``.
+
+``PairSetup`` is immutable (frozen). To change a setup you create a new
 object, which avoids bugs where a running sync sees half-edited values.
 """
 
-import json
 import os
 import re
-import threading
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from . import config
 from .errors import SetupError
@@ -28,8 +26,8 @@ _MAX_SIZE_PATTERN = re.compile(r"^(off|\d+(\.\d+)?[bkmgtp]?)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
-class AppSetup:
-    """The complete setup of the folder sync."""
+class PairSetup:
+    """Everything rclone needs to know to sync one folder pair."""
 
     local_path: str = ""
     remote: str = config.DEFAULT_REMOTE
@@ -41,10 +39,10 @@ class AppSetup:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_dict(cls, data: dict) -> "AppSetup":
+    def from_dict(cls, data: dict) -> "PairSetup":
         """
         Build a validated setup from a plain dictionary (JSON from the UI
-        or from the setup file). Missing keys fall back to defaults.
+        or from the pairs file). Missing keys fall back to defaults.
         Raises ``SetupError`` with a human-readable message if invalid.
         """
         defaults = cls()
@@ -127,64 +125,3 @@ def _clean_exclusions(value: Any) -> tuple:
         if pattern not in cleaned:
             cleaned.append(pattern)
     return tuple(cleaned)
-
-
-# ----------------------------------------------------------------------
-# Persistence
-# ----------------------------------------------------------------------
-
-class SetupStore:
-    """Holds the current setup and keeps the file on disk in sync."""
-
-    def __init__(self, path: Path, legacy_path: Optional[Path] = None) -> None:
-        """
-        ``legacy_path`` is the file's old name (``settings.json``). If only that
-        exists, it is read once; the next save writes the new file.
-        """
-        self._path = path
-        self._legacy_path = legacy_path
-        self._lock = threading.Lock()
-        self._current = self._load_from_disk()
-
-    def get(self) -> AppSetup:
-        """The current setup (an immutable snapshot)."""
-        with self._lock:
-            return self._current
-
-    def update(self, data: dict) -> AppSetup:
-        """
-        Validate ``data``, save it and make it the current setup.
-        Raises ``SetupError`` if anything is invalid; nothing is changed then.
-        """
-        new_setup = AppSetup.from_dict(data)
-        with self._lock:
-            self._write_to_disk(new_setup)
-            self._current = new_setup
-        return new_setup
-
-    # ------------------------------------------------------------------
-    # Disk access
-    # ------------------------------------------------------------------
-
-    def _load_from_disk(self) -> AppSetup:
-        """Read the setup file; fall back to defaults if it is missing or broken."""
-        source = self._path
-        if not source.exists() and self._legacy_path is not None:
-            source = self._legacy_path
-        if not source.exists():
-            return AppSetup()
-        try:
-            data = json.loads(source.read_text(encoding="utf-8"))
-            return AppSetup.from_dict(data)
-        except (OSError, ValueError, SetupError) as error:
-            print(f"Warning: could not read {source} ({error}). Using defaults.")
-            return AppSetup()
-
-    def _write_to_disk(self, setup: AppSetup) -> None:
-        """Write atomically so a crash can never leave a half-written file."""
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path = self._path.with_suffix(".tmp")
-        temporary_path.write_text(
-            json.dumps(setup.to_dict(), indent=2), encoding="utf-8"
-        )
-        os.replace(temporary_path, self._path)

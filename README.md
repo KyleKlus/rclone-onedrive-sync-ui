@@ -12,8 +12,8 @@ python run.py --open
 
 Then in the browser (default address `http://127.0.0.1:8765`):
 
-1. **SETUP**: enter your local folder and your rclone remote
-   (e.g. `onedrive:`), then *SAVE SETUP*.
+1. **FOLDER PAIRS**: press *ADD FOLDER PAIR*, name it, enter your local folder and
+   your rclone remote (e.g. `onedrive:`), then *CREATE FOLDER PAIR*.
 2. **Two-way sync, first time only**: open *FIRST TIME USING TWO-WAY SYNC?* and
    press *RUN FIRST-TIME SETUP*. This places a `RCLONE_TEST` file on both sides
    (needed by `--check-access`) and builds the initial baseline.
@@ -49,12 +49,42 @@ if they are missing; see also `requirements-desktop.txt`). Notes:
 | Two-way sync | `rclone bisync <local> <remote>` | Changes on both sides are merged. **OneDrive wins conflicts** (`--conflict-resolve path2`); the losing local copy is kept with a number suffix. |
 | Download only | `rclone sync <remote> <local>` | This PC is made to match OneDrive. Local-only files are deleted (max 25 per run). |
 
-Use **DRY RUN** to preview what a run would do without changing anything.
+The mode applies to all folder pairs. Use **DRY RUN** to preview what a run would do
+without changing anything.
+
+## Folder pairs
+
+You can sync several local / OneDrive folder pairs. They are managed in one card that shows
+two views in the same spot:
+
+- **Overview**: one row per pair with an on/off switch, its folders, its own state
+  (Ready / Waiting / Syncing / Done / Failed / Stopped / Inactive) and an *Edit* button.
+  *Add folder pair* is always there. When there are more pairs than fit, the list scrolls
+  inside the card; the card itself never grows.
+- **Setup of one pair**: opens in place of the overview. The top row has the *Back* button
+  and the pair's name (click it to rename). Below it are the folder, remote, max size and
+  exclusions. Going back with unsaved changes asks for a second click.
+
+How a run treats the pairs:
+
+- **Switched-off pairs are skipped.** Switch a pair off in the overview to leave it out
+  temporarily without deleting it.
+- **Pairs sync in parallel**, each in its own rclone process, **unless their folders
+  intersect**: the same or a nested local folder, or the same or a nested folder on the same
+  remote (a remote without a folder, `onedrive:`, is the whole drive). Such a pair waits
+  (state *Waiting*, with the reason) until the pair in front of it is done. See `backend/path_overlap.py`.
+- One failing pair does not stop the others; the overall state is *Failed* if any pair failed.
+- **Stop** stops every pair. Pairs cannot be changed while a sync is running.
+- Every log line is tagged with its pair's name, because the lines of parallel pairs mix.
+- *First-time setup* runs for every active pair; switch the others off first if needed.
 
 ## Exclusions and max file size
 
-Both are set in the UI and saved to `data/setup.json`. Exclusions are written
-to `data/filters.txt` before every run. Two-way sync passes it as `--filters-file` (a bisync-only flag); download mode passes the same file as `--filter-from`.
+Both are set per folder pair in the UI. All pairs are saved to `data/pairs.json`
+(an older single `data/setup.json` is converted into a pair called "Folder pair 1" on first
+start; the old file is left untouched). Each pair's exclusions are written to
+`data/filters/<pair id>.txt` before every run. Two-way sync passes it as `--filters-file`
+(a bisync-only flag); download mode passes the same file as `--filter-from`.
 
 | Pattern | Meaning |
 |---------|---------|
@@ -85,13 +115,13 @@ buttons that sink when hovered and pressed.
   (132 = green; try 210 for blue). Any element can override it, e.g. `.btn--danger`.
 - Buttons, inputs and switches share one rule in `components.css` (cards are flat on purpose).
   States only change `--lift`, so adding a new 3D element means adding its selector there.
-- Page layout (wide screens): status banner, then Setup (left) and Run (right) at equal
+- Page layout (wide screens): status banner, then Folder pairs (left) and Run (right) at equal
   height, then the log, which is exactly one screen tall. Narrow screens use one column.
 - Secondary buttons use `.btn--plain`: the same raised 3D button as the primary one, but in a
   pale colour. The primary button is the green one. The style is one line in `components.css`.
 - **Reset to defaults** loads the defaults from the backend (`GET /api/setup/defaults`,
-  defined in `config.py`) into the form. Nothing is saved until you click Save setup,
-  and your local folder is kept.
+  defined in `config.py`) into the form. Nothing is saved until you click Save, and the
+  pair's name and local folder are kept.
 - The Itim font is loaded from the jsDelivr CDN (the only external resource, allowed
   in the Content-Security-Policy in `backend/server/http_server.py`). Offline, the UI falls
   back to the system "cursive" font. The log always uses a monospace font.
@@ -105,8 +135,11 @@ desktop/                   the native window, dock identity, single-instance loc
 backend/
   config.py                fixed app settings + the BISYNC_FLAGS / DOWNLOAD_FLAGS lists
   errors.py  models.py     exceptions, enums, log entry type
-  setup.py                 folder-sync setup: validation + load/save setup.json
-  sync_manager.py          state machine: idle -> running -> done/failed/stopped
+  setup.py                 the setup of ONE folder pair: validation
+  pairs.py                 folder pairs (name, on/off, setup) + the list saved as pairs.json
+  path_overlap.py          do two pairs share a folder? (then they must not run together)
+  pair_job.py              one pair's sync in its own thread, with its own state
+  sync_manager.py          runs one job per active pair; overall state idle -> running -> done/failed/stopped
   app.py                   wires all of the above together
   command/
     rclone.py              builds rclone command lines, runs rclone, can cancel
@@ -122,10 +155,14 @@ frontend/
   img/noise.svg            background texture
   img/icons/               app icons (apple-touch, 192, 512); favicon.svg/.ico and site.webmanifest sit next to index.html
   js/api.js                the only file that talks to the backend
-  js/status_view.js  controls_view.js  setup_view.js  log_view.js
+  js/status_view.js  controls_view.js  log_view.js
+  js/pairs_view.js         overview card: the list of pairs, switches, Add
+  js/setup_view.js         setup of one pair (back button, name, folders, exclusions)
+  js/setup_panel.js        switches the card between overview and setup
+  js/two_step_button.js    "click again to confirm" for delete / discard
   js/main.js               wires views to the API, polling loop
 tests/                     end-to-end tests with a fake rclone
-data/                      created at runtime (setup, filter file)
+data/                      created at runtime (pairs.json, filters/)
 ```
 
 ## Tests

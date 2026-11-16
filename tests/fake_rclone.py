@@ -8,6 +8,10 @@ Behaviour is chosen with the environment variable FAKE_RCLONE_MODE:
     need_resync  print the bisync "must run --resync" error, exit 2
     slow         keep printing for ~30 s (so tests can press STOP)
 
+Independent of the mode, a command fails if any argument contains FAIL_ME.
+Tests use that to make ONE folder pair fail (by naming its folder FAIL_ME)
+while the other pairs of the same run succeed.
+
 The first thing it prints is its own argument list, so tests can check
 exactly which command the app built.
 """
@@ -23,6 +27,10 @@ print("ARGS: " + " ".join(sys.argv[1:]), flush=True)
 # (--filters-file exists only for bisync; plain sync uses --filter-from.)
 if len(sys.argv) > 1 and sys.argv[1] == "sync" and "--filters-file" in sys.argv:
     print("Error: unknown flag: --filters-file", flush=True)
+    sys.exit(1)
+
+if any("FAIL_ME" in argument for argument in sys.argv[1:]):
+    print("2026/11/13 21:40:00 ERROR : this folder pair was told to fail", flush=True)
     sys.exit(1)
 
 if mode == "slow":
