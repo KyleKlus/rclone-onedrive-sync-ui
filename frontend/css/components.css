@@ -689,7 +689,7 @@
 .pair-row {
   flex: none;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;   /* text | state | on/off switch | edit */
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;   /* text | state | on/off switch | edit | delete */
   align-items: center;
   gap: 0.4rem 0.9rem;
   padding: 0.6rem 0.8rem 0.6rem 1rem;
@@ -746,7 +746,7 @@
 
 .pair-row__glyph { font-family: var(--font-mono); font-weight: 700; }
 
-/* Narrow card: the text on top, state, switch and edit button in a row below it. */
+/* Narrow card: the text on top, state, switch, edit and delete buttons in a row below it. */
 @media (max-width: 600px) {
   .pair-row__body { grid-column: 1 / -1; }
   .pair-row__badge { justify-self: start; }

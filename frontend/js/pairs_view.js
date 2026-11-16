@@ -1,7 +1,7 @@
 /**
  * pairs_view.js
  * The overview of all folder pairs: one row per pair with its on/off switch,
- * name, folders, current state and an Edit button, plus the Add button.
+ * name, folders, current state, an Edit button and a Delete button, plus the Add button.
  *
  * It only displays what the backend reports (`status.pairs`) and calls the
  * callbacks it receives; it never talks to the backend itself.
@@ -9,6 +9,8 @@
  * The status is polled every second, so rows are UPDATED IN PLACE instead of
  * being rebuilt. That keeps scroll position, focus and hover intact.
  */
+
+import { ConfirmDialog } from "./confirm_dialog.js";
 
 /**
  * How each state looks: [short glyph, word]. The word is always shown, so the state
@@ -30,10 +32,11 @@ export class PairsView {
    * @param {{
    *   onAdd: () => void,
    *   onEdit: (pairId: string) => void,
+   *   onDelete: (pairId: string) => Promise<void>,
    *   onToggle: (pairId: string, enabled: boolean) => Promise<void>,
    * }} callbacks
    */
-  constructor({ onAdd, onEdit, onToggle }) {
+  constructor({ onAdd, onEdit, onDelete, onToggle }) {
     this.list = document.getElementById("pair-list");
     this.emptyNotice = document.getElementById("pair-empty");
     this.count = document.getElementById("pairs-count");
@@ -42,7 +45,9 @@ export class PairsView {
     this.lockNote = document.getElementById("pairs-lock-note");
 
     this.onEdit = onEdit;
+    this.onDelete = onDelete;
     this.onToggle = onToggle;
+    this.confirmDialog = new ConfirmDialog();
 
     /** The row of every pair, by pair id: {element, switchInput, name, paths, note, glyph, word, ...}. */
     this.rows = new Map();
@@ -95,6 +100,7 @@ export class PairsView {
     this.isLocked = isLocked;
     this.addButton.disabled = isLocked;
     this.lockNote.hidden = !isLocked;
+    for (const row of this.rows.values()) row.deleteButton.disabled = isLocked;
   }
 
   #renderCount(pairs) {
@@ -142,15 +148,23 @@ export class PairsView {
     // A pen. (Static markup, nothing from the backend goes in here.)
     editButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
 
-    element.append(body, badge, switchLabel, editButton);
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "btn btn--small btn--flat btn--icon btn--danger";
+    deleteButton.title = "Delete";
+    // A trash can. (Static markup, nothing from the backend goes in here.)
+    deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+
+    element.append(body, badge, switchLabel, editButton, deleteButton);
 
     const row = {
-      element, switchInput, name, paths, note, glyph, word, editButton,
+      element, switchInput, name, paths, note, glyph, word, editButton, deleteButton,
       serverEnabled: true,   // what the backend last said; the switch is put back to this after a toggle
       isToggling: false,     // while true, polling must not reset the switch under the user's finger
     };
     switchInput.addEventListener("change", () => this.#handleToggle(row, pairId));
     editButton.addEventListener("click", () => this.onEdit(pairId));
+    deleteButton.addEventListener("click", () => this.#handleDelete(row, pairId));
 
     this.rows.set(pairId, row);
     return row;
@@ -176,6 +190,9 @@ export class PairsView {
     row.switchInput.disabled = this.isLocked;
     row.switchInput.setAttribute("aria-label", `Active: ${pair.name}`);
     row.editButton.setAttribute("aria-label", `Edit ${pair.name}`);
+    row.deleteButton.setAttribute("aria-label", `Delete ${pair.name}`);
+    row.deleteButton.disabled = this.isLocked;
+    row.pairName = pair.name;
   }
 
   /** The one line of explanation under a pair's folders (empty = nothing to say). */
@@ -187,6 +204,17 @@ export class PairsView {
         + "If rclone asks for a first-time setup after this changed, run it once.";
     }
     return "";
+  }
+
+  /** Ask first (a popup), then let the app delete the pair. */
+  async #handleDelete(row, pairId) {
+    const confirmed = await this.confirmDialog.ask({
+      title: "Delete folder pair?",
+      text: `"${row.pairName}" will be removed from the list. `
+        + "The files in its folders, on this PC and on OneDrive, are not touched.",
+      confirmLabel: "Delete pair",
+    });
+    if (confirmed) await this.onDelete(pairId);
   }
 
   async #handleToggle(row, pairId) {

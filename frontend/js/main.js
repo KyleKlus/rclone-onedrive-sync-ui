@@ -34,6 +34,7 @@ class App {
     this.pairsView = new PairsView({
       onAdd: () => this.#addPair(),
       onEdit: (pairId) => this.#editPair(pairId),
+      onDelete: (pairId) => this.#deletePairFromOverview(pairId),
       onToggle: (pairId, enabled) => this.#togglePair(pairId, enabled),
     });
     this.setupView = new SetupView({
@@ -106,6 +107,18 @@ class App {
     } catch (error) {
       this.pairsView.showMessage(this.#messageOf(error), "error");
     }
+  }
+
+  /** Delete a pair (already confirmed in the overview). Never throws: a failure is shown instead. */
+  async #deletePairFromOverview(pairId) {
+    this.pairsView.clearMessage();
+    try {
+      await this.api.deletePair(pairId);
+      this.pairsView.showMessage("Folder pair deleted. Its files were not touched.", "success");
+    } catch (error) {
+      this.pairsView.showMessage(this.#messageOf(error), "error");
+    }
+    await this.#refresh();
   }
 
   /** Switch a pair on or off. Never throws: a failure is shown in the overview instead. */
