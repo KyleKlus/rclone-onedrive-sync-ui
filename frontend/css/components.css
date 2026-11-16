@@ -831,6 +831,27 @@
 }
 
 .setup-header .btn { flex: none; }
+
+/* The back button is a big square arrow, as tall as the name field next to it.
+   Its text is only for screen readers. While armed ("really discard?") it turns
+   red and a small label appears next to it. */
+.setup-header .setup-header__back { position: relative; width: 2.6rem; height: 2.6rem; }
+.setup-header__back > svg { width: 1.7em; height: 1.7em; }
+.setup-header__back[data-armed="true"]::after {
+  content: attr(data-armed-text);
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 0.6rem);
+  transform: translateY(-50%);
+  z-index: 1;
+  padding: 0.1rem 0.6rem;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
 .setup-header__name { flex: 1; }
 
 /* ---- Confirmation popup (see confirm_dialog.js) ---- */
