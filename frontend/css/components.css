@@ -122,8 +122,8 @@
 }
 .btn--flat[data-armed="true"] { background-color: hsl(4, 90%, 79%); }
 
-/* Ghost button: no outline at all until you point at it, then a soft green tint.
-   For the quietest actions (the Back button). Same size as the flat button. */
+/* Ghost button: a flat button whose outline only appears when you point at it.
+   For the quietest actions (Back, the plus in the exclusion field). */
 .btn--ghost {
   background-color: transparent;
   border-width: 2px;
@@ -132,8 +132,15 @@
   transform: none;
   box-shadow: none;
 }
-.btn--ghost:hover:not(:disabled)  { background-color: hsla(var(--hue), 60%, 86%, 0.85); }
-.btn--ghost:active:not(:disabled) { background-color: hsla(var(--hue), 55%, 74%, 0.9); }
+.btn--ghost.btn--icon { width: 2rem; height: 2rem; padding: 0; }   /* square */
+.btn--ghost:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.4);
+}
+.btn--ghost:active:not(:disabled) {
+  background-color: hsl(var(--hue), 70%, 84%);
+  border-color: rgba(0, 0, 0, 0.45);
+}
 .btn--ghost[data-armed="true"]    { background-color: hsl(4, 90%, 79%); border-color: rgba(0, 0, 0, 0.2); }
 
 /* The power button of a folder pair. Its colour says what a click does:
@@ -625,9 +632,19 @@
 .exclusion-empty { font-size: 0.95rem; }
 
 .exclusion-add {
-  display: flex;
-  gap: 0.6rem;
+  position: relative;          /* the plus button sits inside the text field */
   margin: 0.4rem 0 0.5rem;
+}
+
+.exclusion-add .field__input { padding-right: 2.8rem; }   /* the text never runs under the button */
+
+.exclusion-add__button {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  width: 1.8rem;
+  height: 1.8rem;
+  margin-top: -0.9rem;         /* centre vertically */
 }
 
 
