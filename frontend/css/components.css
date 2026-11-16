@@ -777,12 +777,38 @@
   min-width: 0;
 }
 
-/* visibility (not display) keeps the hidden view's size in the card's height, and
-   also removes it from the tab order and from screen readers. */
-.setup-panel[data-view="overview"] > .setup-form,
-.setup-panel[data-view="editor"]   > .pairs-view {
+/* Switching slides like a macOS page change: the new view comes in from the
+   right while the old one slides a bit to the left and fades (and the other way
+   round when going back). The panel clips what sticks out of the card.
+
+   visibility (not display) keeps the hidden view's size in the card's height, and
+   also removes it from the tab order and from screen readers. It is switched on
+   at once when a view appears, and only AFTER the slide when it disappears. */
+.setup-panel { overflow: hidden; --slide-duration: calc(var(--duration) * 2); }
+
+.setup-panel__view {
+  transition:
+    transform var(--slide-duration) var(--ease),
+    opacity var(--slide-duration) var(--ease),
+    visibility 0s linear 0s;
+}
+
+/* The overview waits at the left while the editor is shown ... */
+.setup-panel[data-view="editor"] > .pairs-view {
+  transform: translateX(-25%);
+  opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  transition-delay: 0s, 0s, var(--slide-duration);
+}
+
+/* ... and the editor waits at the right while the overview is shown. */
+.setup-panel[data-view="overview"] > .setup-form {
+  transform: translateX(100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition-delay: 0s, 0s, var(--slide-duration);
 }
 
 /* ---- Overview ---- */
