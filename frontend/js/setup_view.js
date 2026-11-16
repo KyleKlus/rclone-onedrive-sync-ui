@@ -8,6 +8,7 @@
  * back are delegated to callbacks.
  */
 
+import { ConfirmDialog } from "./confirm_dialog.js";
 import { TwoStepButton } from "./two_step_button.js";
 
 export class SetupView {
@@ -45,12 +46,9 @@ export class SetupView {
     this.pairId = null;
     /** The form as it was when loaded or last saved; used to tell if something was changed. */
     this.savedSnapshot = "";
+    this.savedName = "";
 
-    this.deleteConfirm = new TwoStepButton(
-      this.deleteButton,
-      document.getElementById("delete-label"),
-      "Click again to delete",
-    );
+    this.confirmDialog = new ConfirmDialog();
     this.backConfirm = new TwoStepButton(
       this.backButton,
       this.backLabel,
@@ -66,8 +64,14 @@ export class SetupView {
       // Leaving with unsaved changes needs a second click, so nothing is lost by accident.
       if (!this.hasUnsavedChanges() || this.backConfirm.confirmed()) onBack();
     });
-    this.deleteButton.addEventListener("click", () => {
-      if (this.deleteConfirm.confirmed()) onDelete();
+    this.deleteButton.addEventListener("click", async () => {
+      const confirmed = await this.confirmDialog.ask({
+        title: "Delete folder pair?",
+        text: `"${this.savedName}" will be removed from the list. `
+          + "The files in its folders, on this PC and on OneDrive, are not touched.",
+        confirmLabel: "Delete pair",
+      });
+      if (confirmed) onDelete();
     });
     this.resetButton.addEventListener("click", () => onReset());
     this.exclusionAddButton.addEventListener("click", () => this.#addFromInput());
@@ -181,10 +185,10 @@ export class SetupView {
     this.exclusions = [...pair.exclusions];
     this.#renderExclusions();
     this.savedSnapshot = JSON.stringify(this.collect());
+    this.savedName = pair.name;  // what the popup calls the pair, even if the name field was edited since
   }
 
   #resetConfirmations() {
-    this.deleteConfirm.reset();
     this.backConfirm.reset();
   }
 

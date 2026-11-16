@@ -168,14 +168,14 @@
         <div class="form-footer">
           <p class="form-message" id="setup-message" role="status"></p>
           <div class="button-row button-row--end">
-            <!-- Only for pairs that already exist. Two clicks are needed (see two_step_button.js). -->
-            <button type="button" class="btn btn--plain btn--danger" id="delete-button" hidden>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-              <span id="delete-label">Delete pair</span>
-            </button>
             <button type="button" class="btn btn--plain" id="reset-button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.96 7.96 0 0 1 12.5 10c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.07 10.6 17.19 8 12.5 8z"/></svg>
               Reset to defaults
+            </button>
+            <!-- Only for pairs that already exist. Asks for confirmation in a popup (see confirm_dialog.js). -->
+            <button type="button" class="btn btn--danger" id="delete-button" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              Delete pair
             </button>
             <button type="submit" class="btn" id="save-button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.2 5.3 12l-1.8 1.8 6 6L21 8l-1.8-1.8z"/></svg>
@@ -281,6 +281,19 @@
   </main>
 
   <!-- ES modules: main.js imports all the other scripts. -->
+  <!-- Popup that asks "are you sure?" (opened by confirm_dialog.js). The browser puts it on top
+       of everything, dims the page behind it and closes it with Escape. -->
+  <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <form method="dialog" class="confirm-dialog__form">
+      <h2 class="panel__label" id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="button-row button-row--end">
+        <button type="submit" class="btn btn--plain" value="cancel" id="confirm-cancel" autofocus>Cancel</button>
+        <button type="submit" class="btn btn--danger" value="confirm" id="confirm-ok"></button>
+      </div>
+    </form>
+  </dialog>
+
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -1,8 +1,9 @@
 /**
  * two_step_button.js
  * Protects a button against accidental clicks: the first click only "arms" it
- * (the label changes, e.g. to "Click again to delete"), and only a second click
- * within a few seconds counts as confirmed. No pop-up dialog is needed.
+ * (the label changes, e.g. to "Discard changes?"), and only a second click
+ * within a few seconds counts as confirmed. Used for small questions; for bigger
+ * ones (deleting) there is a popup, see confirm_dialog.js.
  *
  * The button is also marked with data-armed="true" while armed, so the CSS can
  * make it stand out.

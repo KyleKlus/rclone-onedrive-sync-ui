@@ -137,10 +137,12 @@ export class PairsView {
 
     const editButton = document.createElement("button");
     editButton.type = "button";
-    editButton.className = "btn btn--small btn--plain";
-    editButton.textContent = "Edit";
+    editButton.className = "btn btn--small btn--plain btn--icon";
+    editButton.title = "Edit";
+    // A pen. (Static markup, nothing from the backend goes in here.)
+    editButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
 
-    element.append(switchLabel, body, badge, editButton);
+    element.append(body, badge, switchLabel, editButton);
 
     const row = {
       element, switchInput, name, paths, note, glyph, word, editButton,
@@ -178,7 +180,6 @@ export class PairsView {
 
   /** The one line of explanation under a pair's folders (empty = nothing to say). */
   #noteFor(pair) {
-    if (!pair.enabled) return "Switched off. It is skipped when you start a sync.";
     if (pair.message) return pair.message;
     if (pair.skips_pairs.length > 0) {
       const names = pair.skips_pairs.map((name) => `"${name}"`).join(", ");

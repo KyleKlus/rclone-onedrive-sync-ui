@@ -57,13 +57,13 @@ without changing anything.
 You can sync several local / OneDrive folder pairs. They are managed in one card that shows
 two views in the same spot:
 
-- **Overview**: one row per pair with an on/off switch, its folders, its own state
-  (Ready / Syncing / Done / Failed / Stopped / Inactive) and an *Edit* button.
+- **Overview**: one row per pair: its name and folders, its own state
+  (Ready / Syncing / Done / Failed / Stopped / Inactive), the on/off switch and a pen button to edit it.
   *Add folder pair* is always there. When there are more pairs than fit, the list scrolls
   inside the card; the card itself never grows.
 - **Setup of one pair**: opens in place of the overview. The top row has the *Back* button
   and the pair's name (click it to rename). Below it are the folder, remote, max size and
-  exclusions. Going back with unsaved changes asks for a second click.
+  exclusions. Going back with unsaved changes asks for a second click. *Delete pair* (next to *Save*) asks in a popup first.
 
 How a run treats the pairs:
 
@@ -170,7 +170,8 @@ frontend/
   js/pairs_view.js         overview card: the list of pairs, switches, Add
   js/setup_view.js         setup of one pair (back button, name, folders, exclusions)
   js/setup_panel.js        switches the card between overview and setup
-  js/two_step_button.js    "click again to confirm" for delete / discard
+  js/two_step_button.js    "click again to confirm" for discarding unsaved changes
+  js/confirm_dialog.js     the "are you sure?" popup (used before deleting a pair)
   js/main.js               wires views to the API, polling loop
 tests/                     end-to-end tests with a fake rclone
 data/                      created at runtime (pairs.json, filters/)
