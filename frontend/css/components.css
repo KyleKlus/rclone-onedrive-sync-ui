@@ -102,6 +102,15 @@
    stand out from the card until you point at it: a thin outline at rest,
    a light fill on hover, a green tint while pressed. No 3D block, no lift.
    The border is 2px (not 3px), so the padding grows by 1px to keep the size. */
+/* border-color is added to the shared transition so the outline fades in and out too. */
+.btn--flat, .btn--ghost {
+  transition:
+    transform var(--duration) var(--ease),
+    box-shadow var(--duration) var(--ease),
+    background-color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease);
+}
+
 .btn--flat {
   background-color: transparent;
   border-width: 2px;
@@ -828,6 +837,8 @@
   display: flex;
   align-items: center;
   gap: 0.9rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);   /* divides the name from the settings */
 }
 
 .setup-header .btn { flex: none; }
