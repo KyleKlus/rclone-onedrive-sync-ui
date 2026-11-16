@@ -636,16 +636,34 @@
   margin: 0.4rem 0 0.5rem;
 }
 
-.exclusion-add .field__input { padding-right: 2.8rem; }   /* the text never runs under the button */
+.exclusion-add .field__input { padding-right: 3rem; }   /* the text never runs under the button */
 
 .exclusion-add__button {
+  /* A strip on the right inside the field, divided from the text by a line,
+     like the x of an exclusion pill. Hovering only changes its background. */
   position: absolute;
-  top: 50%;
-  right: 0.35rem;
-  width: 1.8rem;
-  height: 1.8rem;
-  margin-top: -0.9rem;         /* centre vertically */
+  top: var(--border-width);
+  right: var(--border-width);
+  bottom: var(--border-width);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-left: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 0 5px 5px 0;
+  cursor: pointer;
+  transition: background-color var(--duration) var(--ease);
 }
+.exclusion-add__button > svg { width: 1.15em; height: 1.15em; fill: currentColor; }
+.exclusion-add__button:hover:not(:disabled)  { background: hsl(var(--hue), 70%, 80%); }
+.exclusion-add__button:active:not(:disabled) { background: hsl(var(--hue), 70%, 70%); }
+.exclusion-add__button:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -4px; }
+.exclusion-add__button:disabled { cursor: not-allowed; opacity: 0.5; }
+/* The field rises 0.5px on hover/focus; the strip rises with it. */
+.exclusion-add:has(.field__input:is(:hover, :focus):not(:disabled)) .exclusion-add__button { transform: translateY(-0.5px); }
 
 
 /* ==========================================================================
