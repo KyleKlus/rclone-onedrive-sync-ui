@@ -131,12 +131,22 @@
               <span class="field__hint">Remote name from <code>rclone config</code>, optionally with a folder: <code>onedrive:Documents</code>.</span>
             </label>
 
-            <label class="field">
-              <span class="field__label">Max file size</span>
-              <input class="field__input field__input--short" type="text" id="setup-max-size"
-                     placeholder="50M" autocomplete="off">
-              <span class="field__hint">Bigger files are skipped. Examples: <code>500k</code>, <code>50M</code>, <code>2G</code>, <code>off</code> (no limit).</span>
-            </label>
+            <div class="field">
+              <label class="field__label" for="setup-max-size">Max file size</label>
+              <div class="field__input size-field" id="size-field">
+                <input class="size-field__number" type="text" inputmode="decimal" id="setup-max-size"
+                       placeholder="50" autocomplete="off">
+                <div class="size-field__unit">
+                  <button type="button" class="size-field__button" aria-haspopup="listbox"
+                          aria-expanded="false" aria-label="Size unit">
+                    <span class="size-field__button-label">MB</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                  </button>
+                  <ul class="size-field__menu" role="listbox" aria-label="Size unit" hidden></ul>
+                </div>
+              </div>
+              <span class="field__hint">Bigger files are skipped. Pick <b>No limit</b> to sync files of any size.</span>
+            </div>
           </div>
 
           <div class="setup-col">

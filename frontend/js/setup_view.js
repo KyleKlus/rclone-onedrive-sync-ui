@@ -9,6 +9,7 @@
  */
 
 import { ConfirmDialog } from "./confirm_dialog.js";
+import { SizeField } from "./size_field.js";
 import { TwoStepButton } from "./two_step_button.js";
 
 export class SetupView {
@@ -25,7 +26,7 @@ export class SetupView {
     this.name = document.getElementById("pair-name");
     this.localPath = document.getElementById("setup-local-path");
     this.remote = document.getElementById("setup-remote");
-    this.maxSize = document.getElementById("setup-max-size");
+    this.maxSize = new SizeField(document.getElementById("size-field"));  // has .value and .disabled like an input
     this.exclusionList = document.getElementById("exclusion-list");
     this.exclusionEmpty = document.getElementById("exclusion-empty");
     this.exclusionInput = document.getElementById("exclusion-input");
