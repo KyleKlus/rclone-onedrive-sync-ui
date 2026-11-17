@@ -12,9 +12,11 @@ three values must stay in sync:
 
 from pathlib import Path
 
+# The id is an internal identifier, not a label. It keeps its original value so that a
+# launcher installed earlier (with --install-launcher) still matches the window.
 APP_ID = "onedrive-sync"
-APP_NAME = "OneDrive Sync"
-APP_COMMENT = "Sync a folder with OneDrive using rclone"
+APP_NAME = "Rclone Sync"
+APP_COMMENT = "Sync folders with your cloud storage using rclone"
 
 _FRONTEND = Path(__file__).resolve().parent.parent / "frontend"
 

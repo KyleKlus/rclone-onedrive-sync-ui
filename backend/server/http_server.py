@@ -65,7 +65,7 @@ class WebServer:
 class _RequestHandler(BaseHTTPRequestHandler):
     """Handles a single HTTP request."""
 
-    server_version = "OneDriveSync"
+    server_version = "RcloneSync"
 
     # --- HTTP verbs ---------------------------------------------------
 

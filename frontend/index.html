@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OneDrive Sync</title>
+  <title>Rclone Sync</title>
 
   <!-- Icons: the SVG is used by modern browsers, the .ico is the fallback. -->
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -19,7 +19,7 @@
 
   <!-- ============================ HEADER ============================ -->
   <header class="app-header">
-    <h1 class="app-title">OneDrive Sync</h1>
+    <h1 class="app-title">Rclone Sync</h1>
     <div class="connection" id="connection-badge" data-connected="false">
       <span class="connection__dot" aria-hidden="true"></span>
       <span id="connection-text">Connecting ...</span>
@@ -84,7 +84,7 @@
         <div class="pair-list-frame">
           <ul class="pair-list" id="pair-list"></ul>
           <p class="pair-empty" id="pair-empty" hidden>
-            No folder pairs yet.<br>Add one to choose which folder on this PC is synced with which OneDrive folder.
+            No folder pairs yet.<br>Add one to choose which folder on this PC is synced with which folder in your cloud.
           </p>
         </div>
 
@@ -120,16 +120,27 @@
             <label class="field">
               <span class="field__label">Local folder</span>
               <input class="field__input" type="text" id="setup-local-path"
-                     placeholder="C:\Users\you\OneDrive  or  /home/you/OneDrive" autocomplete="off">
+                     placeholder="C:\Users\you\Cloud  or  /home/you/Cloud" autocomplete="off">
               <span class="field__hint">Full path of the folder on this PC.</span>
             </label>
 
-            <label class="field">
-              <span class="field__label">OneDrive remote</span>
-              <input class="field__input" type="text" id="setup-remote"
-                     placeholder="onedrive:" autocomplete="off">
-              <span class="field__hint">Remote name from <code>rclone config</code>, optionally with a folder: <code>onedrive:Documents</code>.</span>
-            </label>
+            <div class="field">
+              <label class="field__label" for="setup-remote-folder">Remote</label>
+              <!-- Dropdown of the remotes rclone knows at the start, optional folder after it (see remote_field.js). -->
+              <div class="field__input remote-field" id="remote-field">
+                <div class="remote-field__picker">
+                  <button type="button" class="remote-field__button" aria-haspopup="listbox"
+                          aria-expanded="false" aria-label="Remote (cloud)">
+                    <span class="remote-field__button-label">Select remote</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                  </button>
+                  <ul class="remote-field__menu" role="listbox" aria-label="Remotes" hidden></ul>
+                </div>
+                <input class="remote-field__folder" type="text" id="setup-remote-folder"
+                       placeholder="Folder (optional)" autocomplete="off">
+              </div>
+              <span class="field__hint" id="setup-remote-hint"></span>
+            </div>
 
             <div class="field">
               <label class="field__label" for="setup-max-size">Max file size</label>
@@ -210,7 +221,7 @@
           <span class="mode-card__body">
             <span class="mode-card__title">Two-way sync</span>
             <span class="mode-card__text">
-              Changes on both sides are merged. On a conflict, OneDrive wins and
+              Changes on both sides are merged. On a conflict, the remote wins and
               your local version is kept with a number added to its name.
               Applies to all active folder pairs.
             </span>
@@ -222,7 +233,7 @@
           <span class="mode-card__body">
             <span class="mode-card__title">Download only</span>
             <span class="mode-card__text">
-              Makes this PC match OneDrive. Nothing is uploaded. Files that exist
+              Makes this PC match the remote. Nothing is uploaded. Files that exist
               only on this PC are deleted (at most 25 per folder pair and run).
               Applies to all active folder pairs.
             </span>
@@ -256,7 +267,7 @@
         <p>
           rclone needs a starting point before it can sync in both directions.
           This step creates a small <code>RCLONE_TEST</code> file on both sides
-          (a safety check) and builds that starting point. OneDrive wins.
+          (a safety check) and builds that starting point. The remote wins.
           You only need to do this once per folder pair, or when rclone asks for it.
           It runs for every active folder pair: switch the others off in the list
           first if you only need it for one.

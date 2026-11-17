@@ -30,16 +30,19 @@ DATA_DIR = PROJECT_ROOT / "data"
 # The server only listens on the loopback interface. Together with the
 # checks in security.py this makes sure that only this PC can talk to it.
 HOST = "127.0.0.1"
-PORT = int(os.environ.get("ONEDRIVE_SYNC_PORT", "8765"))
+PORT = int(os.environ.get("RCLONE_SYNC_PORT", "8765"))
 
 # --------------------------------------------------------------------------
 # rclone
 # --------------------------------------------------------------------------
 
 # Name (or full path) of the rclone executable. Can be overridden with the
-# environment variable ONEDRIVE_SYNC_RCLONE, which the tests use to plug in
+# environment variable RCLONE_SYNC_BINARY, which the tests use to plug in
 # a fake rclone.
-RCLONE_BINARY = os.environ.get("ONEDRIVE_SYNC_RCLONE", "rclone")
+RCLONE_BINARY = os.environ.get("RCLONE_SYNC_BINARY", "rclone")
+
+# How long ``rclone listremotes`` may take before the app gives up on it.
+REMOTE_LIST_TIMEOUT_SECONDS = 10
 
 # ``rclone bisync --check-access`` only runs if a file with this name exists
 # on BOTH sides. It protects against syncing an empty / unmounted folder.
@@ -52,7 +55,7 @@ MAX_SIZE_FLAG = "--max-size"
 BISYNC_FLAGS = [
     "--max-size", "50M",
     "--resilient", "--recover",
-    "--conflict-resolve", "path2",   # path2 = OneDrive: OneDrive wins conflicts
+    "--conflict-resolve", "path2",   # path2 = the remote: the remote wins conflicts
     "--conflict-loser", "num",
     "--check-access",
     "--max-delete", "25",
@@ -77,7 +80,9 @@ DOWNLOAD_FLAGS = [
 # Setup: default values (used until the user saves their own)
 # --------------------------------------------------------------------------
 
-DEFAULT_REMOTE = "onedrive:"
+# No default remote: which cloud a pair uses is the user's choice, made in the UI
+# from the remotes that rclone knows (see command/remotes.py).
+DEFAULT_REMOTE = ""
 DEFAULT_MAX_SIZE = "50M"
 DEFAULT_EXCLUSIONS = (
     "~$*",          # Office lock files

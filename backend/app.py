@@ -13,6 +13,7 @@ from .server.api import ApiRouter
 from .server.http_server import WebServer
 from .command.log_buffer import LogBuffer
 from .command.rclone import FilterFiles, RcloneCommandBuilder, RcloneRunner
+from .command.remotes import RemoteCatalog
 from .pairs import FolderPairStore
 from .sync_manager import SyncManager
 
@@ -37,15 +38,17 @@ class Application:
             legacy_paths=[data_dir / "setup.json", data_dir / "settings.json"],
         )
 
+        command_builder = RcloneCommandBuilder(rclone_binary)
+
         self.sync_manager = SyncManager(
             pair_store=pair_store,
             log_buffer=log_buffer,
-            command_builder=RcloneCommandBuilder(rclone_binary),
+            command_builder=command_builder,
             filter_files=FilterFiles(data_dir / "filters"),
             runner_factory=RcloneRunner,   # every folder pair's job gets its own runner
             rclone_binary=rclone_binary,
         )
-        router = ApiRouter(pair_store, self.sync_manager, log_buffer)
+        router = ApiRouter(pair_store, self.sync_manager, log_buffer, RemoteCatalog(command_builder))
         self.web_server = WebServer(host, port, frontend_dir, router)
 
     @property

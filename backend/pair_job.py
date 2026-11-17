@@ -47,11 +47,11 @@ def describe_run(options: RunOptions, pair_count: int = 1) -> str:
     """The plain-words sentence for 'a sync is running', used in the UI and the log."""
     scope = "" if pair_count == 1 else f" for {pair_count} folder pairs"
     if options.mode is SyncMode.DOWNLOAD:
-        text = f"Download is running{scope}. This PC is being made to match OneDrive."
+        text = f"Download is running{scope}. This PC is being made to match the remote."
     elif options.resync:
-        text = f"First-time setup is running{scope} (resync). OneDrive wins on conflicts."
+        text = f"First-time setup is running{scope} (resync). The remote wins on conflicts."
     else:
-        text = f"Two-way sync is running{scope}. OneDrive wins on conflicts."
+        text = f"Two-way sync is running{scope}. The remote wins on conflicts."
     if options.dry_run:
         text += " DRY RUN: no files are changed."
     return text
@@ -222,7 +222,7 @@ class PairJob:
         self._log_app("$ " + shlex.join(command))
         exit_code = self._runner.run(command, self._handle_rclone_line)
         if exit_code != 0:
-            raise _StepFailed("Could not place the access-check file on OneDrive.")
+            raise _StepFailed("Could not place the access-check file on the remote.")
 
     def _handle_rclone_line(self, line: str) -> None:
         """Called for every line rclone prints."""

@@ -63,6 +63,7 @@ class App {
    */
   async #prepareEditor() {
     try {
+      this.setupView.setRemotes(await this.#loadRemotes());
       this.setupView.open({ ...(await this.api.getDefaultSetup()), name: "" }, null);
     } catch {
       /* nothing to do: the backend may simply not be reachable yet */
@@ -106,6 +107,7 @@ class App {
     this.pairsView.clearMessage();
     try {
       const defaults = await this.api.getDefaultSetup();
+      this.setupView.setRemotes(await this.#loadRemotes());
       this.setupView.open({ ...defaults, name: this.#suggestName() }, null);
       this.setupPanel.showEditor();
       this.setupView.focusName();
@@ -117,7 +119,9 @@ class App {
   async #editPair(pairId) {
     this.pairsView.clearMessage();
     try {
-      this.setupView.open(await this.api.getPair(pairId), pairId);
+      const pair = await this.api.getPair(pairId);
+      this.setupView.setRemotes(await this.#loadRemotes());
+      this.setupView.open(pair, pairId);
       this.setupPanel.showEditor();
     } catch (error) {
       this.pairsView.showMessage(this.#messageOf(error), "error");
@@ -182,6 +186,19 @@ class App {
       await this.#refresh();
     } catch (error) {
       this.setupView.showMessage(this.#messageOf(error), "error");
+    }
+  }
+
+  /**
+   * The remotes rclone knows, asked fresh every time the form opens (so a remote
+   * added with "rclone config" shows up without reloading the page). Never throws:
+   * if the backend cannot answer, the form just gets an empty list and the reason.
+   */
+  async #loadRemotes() {
+    try {
+      return await this.api.getRemotes();
+    } catch (error) {
+      return { remotes: [], error: this.#messageOf(error) };
     }
   }
 

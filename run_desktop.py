@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Start OneDrive Sync as a desktop app: one command, one native window.
+Start Rclone Sync as a desktop app: one command, one native window.
 
     python run_desktop.py                     open the app window
     python run_desktop.py --install-launcher  add it to the app menu / dock (once)
@@ -22,10 +22,10 @@ from desktop.window import DesktopUnavailable, DesktopWindow
 
 
 def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="OneDrive Sync (desktop window)")
+    parser = argparse.ArgumentParser(description="Rclone Sync (desktop window)")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--install-launcher", action="store_true",
-                       help="add OneDrive Sync to the app menu (gives the dock its icon)")
+                       help="add Rclone Sync to the app menu (gives the dock its icon)")
     group.add_argument("--uninstall-launcher", action="store_true",
                        help="remove the app menu entry again")
     return parser.parse_args()
@@ -35,7 +35,7 @@ def manage_launcher(arguments: argparse.Namespace) -> int:
     entry = LauncherEntry(script_path=config.PROJECT_ROOT / "run_desktop.py")
     if arguments.install_launcher:
         print(f"Installed: {entry.install()}")
-        print("Start 'OneDrive Sync' from your app menu; its window will show the icon in the dock.")
+        print("Start 'Rclone Sync' from your app menu; its window will show the icon in the dock.")
     else:
         entry.uninstall()
         print("Removed the app menu entry.")
@@ -45,7 +45,7 @@ def manage_launcher(arguments: argparse.Namespace) -> int:
 def run_app() -> int:
     lock = InstanceLock(config.DATA_DIR / "app.lock")
     if not lock.acquire():
-        print("OneDrive Sync is already running (look for its window or dock icon).")
+        print("Rclone Sync is already running (look for its window or dock icon).")
         return 1
 
     try:

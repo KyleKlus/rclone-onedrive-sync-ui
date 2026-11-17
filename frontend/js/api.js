@@ -31,6 +31,15 @@ export class ApiClient {
     return this.#request("GET", "/api/setup/defaults");
   }
 
+  /**
+   * @returns {Promise<{remotes: {name: string, type: string}[], error: string}>}
+   *   The remotes (clouds) rclone has configured, names without the colon. If rclone could
+   *   not be asked, `remotes` is empty and `error` says why.
+   */
+  getRemotes() {
+    return this.#request("GET", "/api/remotes");
+  }
+
   /** @returns {Promise<object>} One folder pair with its full setup (exclusions etc.). */
   getPair(pairId) {
     return this.#request("GET", this.#pairPath(pairId));

@@ -8,6 +8,10 @@ Behaviour is chosen with the environment variable FAKE_RCLONE_MODE:
     need_resync  print the bisync "must run --resync" error, exit 2
     slow         keep printing for ~30 s (so tests can press STOP)
 
+``listremotes --long`` is answered before any mode applies, like the real thing:
+one "name:  type" line per remote. The remotes come from FAKE_RCLONE_REMOTES
+("name:type,name:type"); FAKE_RCLONE_REMOTES_FAIL=1 makes the listing fail.
+
 Independent of the mode, a command fails if any argument contains FAIL_ME.
 Tests use that to make ONE folder pair fail (by naming its folder FAIL_ME)
 while the other pairs of the same run succeed.
@@ -21,6 +25,18 @@ import sys
 import time
 
 mode = os.environ.get("FAKE_RCLONE_MODE", "ok")
+
+# `listremotes` prints only the remotes (no ARGS line: the app parses this output).
+if len(sys.argv) > 1 and sys.argv[1] == "listremotes":
+    if os.environ.get("FAKE_RCLONE_REMOTES_FAIL"):
+        print("CRITICAL: Failed to load config file: permission denied", file=sys.stderr, flush=True)
+        sys.exit(1)
+    for entry in os.environ.get("FAKE_RCLONE_REMOTES", "onedrive:onedrive,icloud:iclouddrive").split(","):
+        if entry:
+            name, _, remote_type = entry.partition(":")
+            print(f"{name + ':':<12} {remote_type}", flush=True)
+    sys.exit(0)
+
 print("ARGS: " + " ".join(sys.argv[1:]), flush=True)
 
 # Like the real rclone, refuse flags a subcommand does not have.

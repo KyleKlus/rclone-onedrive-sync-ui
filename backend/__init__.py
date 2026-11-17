@@ -1,9 +1,10 @@
 """
-OneDrive Sync backend.
+Rclone Sync backend.
 
 A small, dependency-free (standard library only) Python backend that wraps
 the ``rclone`` command line tool and exposes it to the web frontend through
-a local-only HTTP API.
+a local-only HTTP API. It works with every cloud that rclone supports: which
+one a folder pair uses is just the name of an rclone remote.
 
 Module overview
 ---------------
@@ -18,6 +19,7 @@ sync_manager        Runs one job per active pair, all in parallel; owns the over
 app                 Wires everything together.
 
 command/rclone      Builds the exact rclone command lines and runs them.
+command/remotes     Asks rclone which remotes (clouds) are configured, for the UI's remote dropdown.
 command/log_buffer  Thread-safe in-memory log that the UI reads from.
 
 server/security     The "localhost only" guard.

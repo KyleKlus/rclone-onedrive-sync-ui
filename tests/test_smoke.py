@@ -223,12 +223,17 @@ class PairApiTests(ServerTestCase):
 
     def test_invalid_values_are_rejected(self):
         for bad in ({"name": ""}, {"name": "x" * 41}, {"name": "two\nlines"},
-                    {"max_size": "huge"}, {"remote": "nocolon"}, {"remote": "C:"},
+                    {"max_size": "huge"}, {"remote": ""}, {"remote": "nocolon"}, {"remote": "C:"},
                     {"local_path": "relative/path"}, {"exclusions": ["#comment"]}):
             status, body = self.request("POST", "/api/pairs", self.pair_data(**bad))
             self.assertEqual(status, 400, bad)
             self.assertIn("error", body)
         self.assertEqual(self.pairs_by_name(), {})   # nothing was created
+
+    def test_a_missing_remote_asks_the_user_to_choose_one(self):
+        status, body = self.request("POST", "/api/pairs", self.pair_data(remote=""))
+        self.assertEqual(status, 400)
+        self.assertIn("Choose a remote", body["error"])
 
     def test_names_must_be_unique(self):
         first = self.create_pair("Docs")
@@ -269,7 +274,7 @@ class PairApiTests(ServerTestCase):
     def test_defaults_endpoint(self):
         status, defaults = self.request("GET", "/api/setup/defaults")
         self.assertEqual(status, 200)
-        self.assertEqual(defaults["remote"], "onedrive:")
+        self.assertEqual(defaults["remote"], "")       # no cloud is preselected: the user picks one
         self.assertEqual(defaults["max_size"], "50M")
         self.assertIn("*.tmp", defaults["exclusions"])
         # Asking for defaults must not change anything that is saved.
@@ -311,13 +316,70 @@ class PairApiTests(ServerTestCase):
         self.create_pair("Docs", local_path=str(self.local_dir), remote="onedrive:Docs")
         for clash in (
             {"local_path": str(self.local_dir), "remote": "onedrive:Docs"},                # identical
-            {"local_path": str(self.make_folder("other")), "remote": "onedrive:Docs"},     # same OneDrive folder
+            {"local_path": str(self.make_folder("other")), "remote": "onedrive:Docs"},     # same remote folder
             {"local_path": str(self.local_dir), "remote": "onedrive:Other"},               # same local folder
         ):
             status, body = self.request("POST", "/api/pairs", self.pair_data("Clash", **clash))
             self.assertEqual(status, 400, clash)
             self.assertIn("clash with the folder pair 'Docs'", body["error"])
         self.assertEqual(list(self.pairs_by_name()), ["Docs"])
+
+
+class RemoteListTests(ServerTestCase):
+    """The remotes rclone knows, which the setup form offers in its dropdown."""
+
+    def use_fake_remotes(self, remotes="", fail=False):
+        """Set what the fake rclone answers to ``listremotes`` (restored after the test)."""
+        for name, value in (("FAKE_RCLONE_REMOTES", remotes or None),
+                            ("FAKE_RCLONE_REMOTES_FAIL", "1" if fail else None)):
+            self.addCleanup(os.environ.pop, name, None)
+            if value is not None:
+                os.environ[name] = value
+
+    def test_lists_the_remotes_with_their_types(self):
+        status, body = self.request("GET", "/api/remotes")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["error"], "")
+        self.assertEqual(
+            body["remotes"],
+            [{"name": "onedrive", "type": "onedrive"}, {"name": "icloud", "type": "iclouddrive"}],
+        )
+
+    def test_remotes_added_later_show_up_without_a_restart(self):
+        self.use_fake_remotes("work:drive,home:s3,backup:crypt")
+        _, body = self.request("GET", "/api/remotes")
+        self.assertEqual([remote["name"] for remote in body["remotes"]], ["work", "home", "backup"])
+
+    def test_no_remotes_is_an_empty_list_not_an_error(self):
+        self.use_fake_remotes(remotes=",")   # rclone answers, but has nothing configured
+        status, body = self.request("GET", "/api/remotes")
+        self.assertEqual((status, body), (200, {"remotes": [], "error": ""}))
+
+    def test_a_failing_rclone_is_reported_in_the_answer(self):
+        self.use_fake_remotes(fail=True)
+        status, body = self.request("GET", "/api/remotes")
+        self.assertEqual(status, 200)                       # the form must keep working
+        self.assertEqual(body["remotes"], [])
+        self.assertIn("permission denied", body["error"])
+
+    def test_a_missing_rclone_is_reported_in_the_answer(self):
+        from backend.command.rclone import RcloneCommandBuilder
+        from backend.command.remotes import RemoteCatalog
+        listing = RemoteCatalog(RcloneCommandBuilder("definitely-not-installed-rclone")).list_remotes()
+        self.assertEqual(listing.remotes, ())
+        self.assertIn("rclone installed", listing.error)
+
+    def test_the_localhost_guard_covers_the_remote_list(self):
+        status, _ = self.request("GET", "/api/remotes", headers={"Host": "evil.com"})
+        self.assertEqual(status, 403)
+
+    def test_parsing_understands_padded_and_unpadded_lines(self):
+        from backend.command.remotes import RemoteInfo, parse_remote_listing
+        output = "onedrive:    onedrive\nmy drive: drive\n\nWARNING no colon here\nbare:\n"
+        self.assertEqual(
+            parse_remote_listing(output),
+            (RemoteInfo("onedrive", "onedrive"), RemoteInfo("my drive", "drive"), RemoteInfo("bare", "")),
+        )
 
 
 class SyncTests(ServerTestCase):
@@ -360,7 +422,7 @@ class SyncTests(ServerTestCase):
         self.assertEqual(result["pairs"][0]["exit_code"], 0)
 
         log = self.log_text()
-        # Path1 = local, Path2 = OneDrive; OneDrive (path2) wins conflicts.
+        # Path1 = local, Path2 = the remote; the remote (path2) wins conflicts.
         self.assertIn(f"ARGS: bisync {self.local_dir} onedrive:", log)
         self.assertIn("--conflict-resolve path2", log)
         self.assertIn("--max-size 10M", log)          # user's value replaced the 50M default
@@ -381,7 +443,7 @@ class SyncTests(ServerTestCase):
         self.request("POST", "/api/sync", {"mode": "download"})
         self.assertEqual(self.wait_for_state({"succeeded", "failed"})["state"], "succeeded")
         log = self.log_text()
-        self.assertIn(f"ARGS: sync onedrive: {self.local_dir}", log)   # OneDrive is the source
+        self.assertIn(f"ARGS: sync onedrive: {self.local_dir}", log)   # the remote is the source
         self.assertNotIn("bisync", log.split("ARGS:")[1])
         self.assertIn("--max-delete 25", log)
         self.assertIn("--filter-from", log)            # `sync` has no --filters-file
@@ -403,7 +465,7 @@ class SyncTests(ServerTestCase):
         log = self.log_text()
         self.assertIn("ARGS: copyto --ignore-existing", log)           # uploads RCLONE_TEST
         self.assertIn("onedrive:RCLONE_TEST", log)
-        self.assertIn("--resync --resync-mode path2", log)             # OneDrive wins on baseline
+        self.assertIn("--resync --resync-mode path2", log)             # the remote wins on baseline
 
     def test_resync_is_refused_for_download_mode(self):
         self.create_pair()
@@ -514,7 +576,7 @@ class MultiplePairsTests(ServerTestCase):
         self.assertTrue(all(pair["state"] == "cancelled" for pair in result["pairs"]))
 
     def nested_pairs(self):
-        """'Outer' with 'Inner' (a folder inside it, at the same spot on OneDrive) and a separate pair."""
+        """'Outer' with 'Inner' (a folder inside it, at the same spot on the remote) and a separate pair."""
         outer_dir = self.make_folder("outer")
         inner_dir = outer_dir / "inner"
         inner_dir.mkdir()

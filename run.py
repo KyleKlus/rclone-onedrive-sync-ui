@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Start OneDrive Sync.
+Start Rclone Sync.
 
     python run.py            start the server, then open the printed address
     python run.py --open     also open it in your default browser
@@ -16,7 +16,7 @@ from backend.app import Application
 
 
 def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="OneDrive Sync (rclone front end)")
+    parser = argparse.ArgumentParser(description="Rclone Sync (rclone front end)")
     parser.add_argument("--port", type=int, default=config.PORT, help="port to listen on")
     parser.add_argument("--open", action="store_true", help="open the UI in the default browser")
     return parser.parse_args()
@@ -32,7 +32,7 @@ def main() -> int:
         return 1
 
     url = f"http://{config.HOST}:{app.port}"
-    print(f"OneDrive Sync is running at {url}")
+    print(f"Rclone Sync is running at {url}")
     print("Only this computer can reach it. Press Ctrl+C to quit.")
     if arguments.open:
         webbrowser.open(url)

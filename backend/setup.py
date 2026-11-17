@@ -1,5 +1,5 @@
 """
-The setup of ONE folder pair (local folder, OneDrive remote, size limit,
+The setup of ONE folder pair (local folder, remote, size limit,
 exclusions): what it is and how it is validated.
 
 The file has two parts:
@@ -77,23 +77,27 @@ def _clean_local_path(value: Any) -> str:
     path = _require_text(value, "Local folder")
     if not path:
         return ""
-    path = os.path.expanduser(path)  # allow "~/OneDrive"
+    path = os.path.expanduser(path)  # allow "~/Cloud"
     if not os.path.isabs(path):
         raise SetupError("Local folder must be a full (absolute) path.")
     return path
 
 
 def _clean_remote(value: Any) -> str:
-    """An rclone remote looks like ``name:`` or ``name:some/folder``."""
-    remote = _require_text(value, "OneDrive remote")
+    """
+    An rclone remote looks like ``name:`` or ``name:some/folder``. The name is one
+    of the remotes from ``rclone config``; the UI offers them in a dropdown, but
+    any well-formed name is accepted here (the list can be out of date).
+    """
+    remote = _require_text(value, "Remote")
+    if not remote:
+        raise SetupError("Choose a remote first.")
     name, separator, _folder = remote.partition(":")
     if not separator:
-        raise SetupError(
-            "OneDrive remote must contain a colon, e.g. 'onedrive:' or 'onedrive:Documents'."
-        )
+        raise SetupError("Remote must contain a colon, e.g. 'mycloud:' or 'mycloud:Documents'.")
     # A single letter would be read by rclone as a Windows drive (C:), not a remote.
     if len(name) < 2:
-        raise SetupError("OneDrive remote name must be at least 2 characters long.")
+        raise SetupError("Remote name must be at least 2 characters long.")
     return remote
 
 

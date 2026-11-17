@@ -9,6 +9,7 @@ Endpoints
 ---------
 GET    /api/status               Current system state, including every folder pair's own state.
 GET    /api/setup/defaults       The default values for a new pair (used by "Reset to defaults").
+GET    /api/remotes              The remotes (clouds) rclone has configured: {"remotes": [{"name", "type"}], "error"}.
 GET    /api/pairs/<id>           One folder pair with its full setup.
 POST   /api/pairs                Create a folder pair (not while a sync runs).
 PUT    /api/pairs/<id>           Change name and setup of a pair (not while a sync runs).
@@ -26,6 +27,7 @@ from typing import Callable, Optional
 
 from ..errors import PairNotFoundError, SetupError, SyncBusyError, SyncConfigError
 from ..command.log_buffer import LogBuffer
+from ..command.remotes import RemoteCatalog
 from ..models import SyncMode
 from ..pairs import FolderPairStore
 from ..setup import PairSetup
@@ -57,15 +59,18 @@ class ApiRouter:
         pair_store: FolderPairStore,
         sync_manager: SyncManager,
         log_buffer: LogBuffer,
+        remote_catalog: RemoteCatalog,
     ) -> None:
         self._pair_store = pair_store
         self._sync_manager = sync_manager
         self._log = log_buffer
+        self._remote_catalog = remote_catalog
 
         # (HTTP method, path pattern, handler). "{name}" in a pattern matches one URL part.
         self._routes: list = [
             ("GET", "/api/status", self._get_status),
             ("GET", "/api/setup/defaults", self._get_default_setup),
+            ("GET", "/api/remotes", self._get_remotes),
             ("GET", "/api/pairs/{pair_id}", self._get_pair),
             ("POST", "/api/pairs", self._post_pair),
             ("PUT", "/api/pairs/{pair_id}", self._put_pair),
@@ -112,6 +117,14 @@ class ApiRouter:
     def _get_default_setup(self, request: ApiRequest) -> ApiResponse:
         """The defaults live in config.py; the UI asks for them instead of copying them."""
         return ApiResponse(200, PairSetup().to_dict())
+
+    def _get_remotes(self, request: ApiRequest) -> ApiResponse:
+        """
+        Asked every time the setup form opens, so a remote that was just added with
+        ``rclone config`` shows up without restarting the app. If rclone cannot be asked,
+        the answer is still 200: an empty list plus an ``error`` text the UI can show.
+        """
+        return ApiResponse(200, self._remote_catalog.list_remotes().to_dict())
 
     # ------------------------------------------------------------------
     # Handlers: folder pairs

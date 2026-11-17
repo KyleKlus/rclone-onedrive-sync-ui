@@ -31,7 +31,7 @@ _ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 @dataclass(frozen=True)
 class FolderPair:
-    """One local folder that is kept in sync with one OneDrive folder."""
+    """One local folder that is kept in sync with one folder on a remote (a cloud)."""
 
     id: str
     name: str
@@ -160,7 +160,7 @@ class FolderPairStore:
             return updated
 
     def delete(self, pair_id: str) -> None:
-        """Remove a pair for good. Its files on disk and on OneDrive are not touched."""
+        """Remove a pair for good. Its files on disk and on the remote are not touched."""
         with self._lock:
             index = self._index_of(pair_id)
             self._commit(self._pairs[:index] + self._pairs[index + 1:])

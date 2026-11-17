@@ -68,10 +68,10 @@ class RelationTests(unittest.TestCase):
         self.assertIn("Both must match", reason)
 
     def test_touching_on_one_side_only_conflicts(self):
-        # The same OneDrive folder from two local folders ...
-        self.assertIn("OneDrive folders overlap", find_conflict(OUTER, pair("/data/other", "onedrive:Docs")))
-        self.assertIn("OneDrive folders overlap", find_conflict(OUTER, pair("/data/other", "onedrive:Docs/Sub")))
-        # ... and the same local folder with two OneDrive folders.
+        # The same remote folder from two local folders ...
+        self.assertIn("remote folders overlap", find_conflict(OUTER, pair("/data/other", "onedrive:Docs")))
+        self.assertIn("remote folders overlap", find_conflict(OUTER, pair("/data/other", "onedrive:Docs/Sub")))
+        # ... and the same local folder with two remote folders.
         self.assertIn("local folders overlap", find_conflict(OUTER, pair("/data/docs", "onedrive:Other")))
         self.assertIn("local folders overlap", find_conflict(OUTER, pair("/data/docs/sub", "onedrive:Other")))
 
@@ -266,9 +266,10 @@ class FolderPairStoreTests(unittest.TestCase):
 
     def test_broken_entries_are_skipped_not_fatal(self):
         self.pairs_file.write_text(json.dumps({"pairs": [
-            {"id": "aaaa1111", "name": "Good", "local_path": "/data/docs"},
-            {"id": "bbbb2222", "name": "", "local_path": "/data/x"},          # no name
-            {"id": "cccc3333", "name": "Bad size", "max_size": "huge"},       # invalid value
+            {"id": "aaaa1111", "name": "Good", "local_path": "/data/docs", "remote": "mycloud:"},
+            {"id": "bbbb2222", "name": "", "local_path": "/data/x", "remote": "mycloud:x"},   # no name
+            {"id": "cccc3333", "name": "Bad size", "remote": "mycloud:y", "max_size": "huge"},  # invalid value
+            {"id": "dddd4444", "name": "No remote", "local_path": "/data/z"},                # no remote chosen
             "not an object",
         ]}))
         self.assertEqual([pair.name for pair in self.new_store().all()], ["Good"])
@@ -279,9 +280,9 @@ class FolderPairStoreTests(unittest.TestCase):
 
     def test_missing_or_duplicate_ids_are_replaced(self):
         self.pairs_file.write_text(json.dumps({"pairs": [
-            {"id": "same", "name": "One"},
-            {"id": "same", "name": "Two"},
-            {"name": "Three"},
+            {"id": "same", "name": "One", "remote": "mycloud:One"},
+            {"id": "same", "name": "Two", "remote": "mycloud:Two"},
+            {"name": "Three", "remote": "mycloud:Three"},
         ]}))
         ids = [pair.id for pair in self.new_store().all()]
         self.assertEqual(len(set(ids)), 3)

@@ -1,7 +1,7 @@
-# OneDrive Sync
+# Rclone Sync
 
-A small local web app that syncs a folder on this PC with OneDrive using the
-`rclone` you already have installed. Python backend, plain HTML/CSS/JS frontend,
+A small local web app that syncs folders on this PC with your cloud storage (OneDrive,
+Google Drive, iCloud, ... any remote rclone supports) using the `rclone` you already have installed. Python backend, plain HTML/CSS/JS frontend,
 no dependencies beyond the Python standard library.
 
 ## Quick start
@@ -13,7 +13,8 @@ python run.py --open
 Then in the browser (default address `http://127.0.0.1:8765`):
 
 1. **FOLDER PAIRS**: press *ADD FOLDER PAIR*, name it, enter your local folder and
-   your rclone remote (e.g. `onedrive:`), then *CREATE FOLDER PAIR*.
+   pick one of your rclone remotes from the dropdown (optionally add a folder on it), then
+   *CREATE FOLDER PAIR*. The dropdown lists what `rclone config` knows; set up a remote there first.
 2. **Two-way sync, first time only**: open *FIRST TIME USING TWO-WAY SYNC?* and
    press *RUN FIRST-TIME SETUP*. This places a `RCLONE_TEST` file on both sides
    (needed by `--check-access`) and builds the initial baseline.
@@ -34,7 +35,7 @@ Needs pywebview and the WebKitGTK system library (install commands are printed
 if they are missing; see also `requirements-desktop.txt`). Notes:
 
 - **Dock icon:** the dock finds the icon through a `.desktop` file whose name matches the
-  window's application id (`onedrive-sync`, set in `desktop/identity.py`). `--install-launcher`
+  window's application id (`onedrive-sync`, set in `desktop/identity.py`; the id is kept so that an already installed launcher still works). `--install-launcher`
   writes that file and the icons into `~/.local/share`, no root needed. Start the app from
   the app menu (or pin it) afterwards; `--uninstall-launcher` removes everything again.
 - Closing the window quits the app (after asking, if a sync is running).
@@ -46,15 +47,15 @@ if they are missing; see also `requirements-desktop.txt`). Notes:
 
 | Mode | rclone command | Behaviour |
 |------|----------------|-----------|
-| Two-way sync | `rclone bisync <local> <remote>` | Changes on both sides are merged. **OneDrive wins conflicts** (`--conflict-resolve path2`); the losing local copy is kept with a number suffix. |
-| Download only | `rclone sync <remote> <local>` | This PC is made to match OneDrive. Local-only files are deleted (max 25 per run). |
+| Two-way sync | `rclone bisync <local> <remote>` | Changes on both sides are merged. **The remote wins conflicts** (`--conflict-resolve path2`); the losing local copy is kept with a number suffix. |
+| Download only | `rclone sync <remote> <local>` | This PC is made to match the remote. Local-only files are deleted (max 25 per run). |
 
 The mode applies to all folder pairs. Use **DRY RUN** to preview what a run would do
 without changing anything.
 
 ## Folder pairs
 
-You can sync several local / OneDrive folder pairs. They are managed in one card that shows
+You can sync several local / remote folder pairs. They are managed in one card that shows
 two views in the same spot:
 
 - **Overview**: one row per pair: its name and folders, its own state
@@ -72,13 +73,13 @@ How a run treats the pairs:
 - **Pairs sync in parallel**, each in its own rclone process.
 - **Nothing is synced twice.** How two pairs relate is decided in `backend/pair_relations.py`:
   - *Separate* folders: nothing to do.
-  - *Nested* (a pair's local **and** OneDrive folder lie inside another pair's, at the same
-    position, e.g. `~/Docs/Photos` <-> `onedrive:Docs/Photos` inside `~/Docs` <-> `onedrive:Docs`):
+  - *Nested* (a pair's local **and** remote folder lie inside another pair's, at the same
+    position, e.g. `~/Docs/Photos` <-> `cloud:Docs/Photos` inside `~/Docs` <-> `cloud:Docs`):
     the outer pair automatically **skips** that folder (an exclusion like `/Photos/` is added to its
     filter file), the inner pair syncs it. The overview says so on the outer pair.
-    A remote without a folder (`onedrive:`) is the whole drive and contains every folder.
-  - Anything else that touches (identical pairs, the same OneDrive folder from two local folders,
-    the same local folder with two OneDrive folders, an inner folder at a different position on each
+    A remote without a folder (`cloud:`) is the whole drive and contains every folder.
+  - Anything else that touches (identical pairs, the same remote folder from two local folders,
+    the same local folder with two remote folders, an inner folder at a different position on each
     side) **cannot be saved**: the message names the pair it clashes with. A run also refuses to
     start if such pairs exist anyway (e.g. from a hand-edited `pairs.json`).
 - The skipped folder stays out of the outer pair even while the inner pair is switched off, so the
@@ -88,6 +89,24 @@ How a run treats the pairs:
 - **Stop** stops every pair. Pairs cannot be changed while a sync is running.
 - Every log line is tagged with its pair's name, because the lines of parallel pairs mix.
 - *First-time setup* runs for every active pair; switch the others off first if needed.
+
+## Remotes
+
+A folder pair's **Remote** field is one field with two parts: a dropdown at its start and a folder
+box after it, e.g. `onedrive:` + `Documents/Work` = `onedrive:Documents/Work`.
+
+- The dropdown lists the remotes rclone has configured (`rclone listremotes --long`, see
+  `backend/command/remotes.py`), each with its type (`onedrive`, `drive`, `iclouddrive`, ...).
+  The list is read every time the form opens, so a remote you just created with `rclone config` shows up
+  without restarting the app.
+- With exactly one remote it is chosen for you; with several you pick one. Nothing is preselected otherwise.
+- A pair whose remote is not in rclone's list (renamed or deleted in `rclone config`) keeps it, marked
+  *not in rclone config*, so opening the pair never changes it silently.
+- If rclone has no remotes, or cannot be asked, the dropdown says *No remotes* and the hint under the
+  field explains why. The API accepts any well-formed remote name regardless.
+- **Which cloud is used is the only difference between pairs.** The rclone flags in `config.py`
+  (`BISYNC_FLAGS`, `DOWNLOAD_FLAGS`) are the same for every remote; check that your provider supports them
+  (e.g. `--metadata`, `--compare size,modtime,checksum`) before relying on a new one.
 
 ## Exclusions and max file size
 
@@ -132,7 +151,7 @@ buttons that sink when hovered and pressed.
   pale colour. The primary button is the green one. The style is one line in `components.css`.
 - **Reset to defaults** loads the defaults from the backend (`GET /api/setup/defaults`,
   defined in `config.py`) into the form. Nothing is saved until you click Save, and the
-  pair's name and local folder are kept.
+  pair's name, local folder and remote are kept.
 - The Itim font is loaded from the jsDelivr CDN (the only external resource, allowed
   in the Content-Security-Policy in `backend/server/http_server.py`). Offline, the UI falls
   back to the system "cursive" font. The log always uses a monospace font.
@@ -154,6 +173,7 @@ backend/
   app.py                   wires all of the above together
   command/
     rclone.py              builds rclone command lines, runs rclone, can cancel
+    remotes.py             asks rclone which remotes (clouds) are configured
     log_buffer.py          thread-safe in-memory log
   server/
     security.py            localhost guard
@@ -167,6 +187,7 @@ frontend/
   img/icons/               app icons (apple-touch, 192, 512); favicon.svg/.ico and site.webmanifest sit next to index.html
   js/api.js                the only file that talks to the backend
   js/status_view.js  controls_view.js  log_view.js
+  js/remote_field.js       the remote field: dropdown of rclone's remotes + folder box (like size_field.js, mirrored)
   js/pairs_view.js         overview card: the list of pairs, switches, Add
   js/setup_view.js         setup of one pair (back button, name, folders, exclusions)
   js/setup_panel.js        switches the card between overview and setup

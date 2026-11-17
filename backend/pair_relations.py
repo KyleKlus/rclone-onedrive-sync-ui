@@ -1,22 +1,22 @@
 """
 How two folder pairs relate to each other, so that nothing is synced twice.
 
-Every pair maps a local folder to a OneDrive folder. Looking at two pairs there
-are exactly three cases:
+Every pair maps a local folder to a folder on a remote (a cloud). Looking at two
+pairs there are exactly three cases:
 
-SEPARATE   Neither the local nor the OneDrive folders touch. Nothing to do.
+SEPARATE   Neither the local nor the remote folders touch. Nothing to do.
 
 NESTED     One pair (the INNER one) lies inside the other (the OUTER one) on BOTH
            sides, at the SAME position:
 
-               outer   /home/me/Docs          <->  onedrive:Docs
-               inner   /home/me/Docs/Photos   <->  onedrive:Docs/Photos
+               outer   /home/me/Docs          <->  cloud:Docs
+               inner   /home/me/Docs/Photos   <->  cloud:Docs/Photos
 
            The outer pair would sync the inner folder too. That is the "synced
            twice" case, and it is solved automatically: the outer pair EXCLUDES
            the inner folder (``/Photos/``), the inner pair syncs it.
 
-CONFLICT   Anything else that touches. For example the same OneDrive folder
+CONFLICT   Anything else that touches. For example the same remote folder
            reached from two local folders, or an inner folder that sits at a
            different position on each side. There is no correct way to sync
            that, so such pairs cannot be saved (and cannot be run together).
@@ -66,21 +66,21 @@ def relate(first: PairSetup, second: PairSetup) -> PairRelation:
     if local_how == "separate" and remote_how == "separate":
         return _SEPARATE
     if local_how == "same" and remote_how == "same":
-        return _conflict("They use the same local folder and the same OneDrive folder.")
+        return _conflict("They use the same local folder and the same remote folder.")
     if local_how == "separate":
-        return _conflict("Their OneDrive folders overlap, but their local folders do not.")
+        return _conflict("Their remote folders overlap, but their local folders do not.")
     if remote_how == "separate":
-        return _conflict("Their local folders overlap, but their OneDrive folders do not.")
+        return _conflict("Their local folders overlap, but their remote folders do not.")
     if local_how == "same" or remote_how == "same":
         return _conflict("One side uses the same folder, but on the other side one folder lies inside the other.")
     if local_how != remote_how:
-        return _conflict("Their local folders and their OneDrive folders are nested in opposite directions.")
+        return _conflict("Their local folders and their remote folders are nested in opposite directions.")
 
     # Both sides nested the same way. The inner folder must be at the same spot on both sides.
     if [part.casefold() for part in local_below] != remote_below:
         return _conflict(
             f"The inner local folder is at '{'/'.join(local_below)}' inside the outer one, "
-            f"but the inner OneDrive folder is at '{'/'.join(remote_below)}'. Both must match."
+            f"but the inner remote folder is at '{'/'.join(remote_below)}'. Both must match."
         )
     return PairRelation(
         RelationKind.NESTED,
@@ -148,9 +148,11 @@ def _compare_local(first: str, second: str) -> tuple:
 
 def _compare_remote(first: str, second: str) -> tuple:
     """
-    Like ``_compare_local`` for ``onedrive:Docs/Work`` style remotes. Different remotes
-    are different clouds. OneDrive ignores case in folder names, so the parts are lower-cased.
-    A remote without a folder (``onedrive:``) is the whole drive and contains every folder.
+    Like ``_compare_local`` for ``cloud:Docs/Work`` style remotes. Different remotes
+    are different clouds. Many clouds (OneDrive, iCloud, ...) ignore case in folder names,
+    so the parts are lower-cased. That is the safe choice for the others too: folders that
+    MIGHT be the same are treated as the same.
+    A remote without a folder (``cloud:``) is the whole drive and contains every folder.
     """
     first_name, first_folders = _split_remote(first)
     second_name, second_folders = _split_remote(second)
@@ -172,7 +174,7 @@ def _normalise_local(path: str) -> str:
 
 
 def _split_remote(remote: str) -> tuple:
-    """'onedrive:Docs/Work' -> ('onedrive', ['docs', 'work'])."""
+    """'cloud:Docs/Work' -> ('cloud', ['docs', 'work'])."""
     name, _separator, folder = remote.partition(":")
     return name, [part for part in folder.casefold().split("/") if part]
 

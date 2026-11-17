@@ -223,7 +223,7 @@ export class PairsView {
     const confirmed = await this.confirmDialog.ask({
       title: "Delete folder pair?",
       text: `"${row.pairName}" will be removed from the list. `
-        + "The files in its folders, on this PC and on OneDrive, are not touched.",
+        + "The files in its folders, on this PC and on the remote, are not touched.",
       confirmLabel: "Delete pair",
     });
     if (confirmed) await this.onDelete(pairId);

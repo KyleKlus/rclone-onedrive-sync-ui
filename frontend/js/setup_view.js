@@ -9,6 +9,7 @@
  */
 
 import { ConfirmDialog } from "./confirm_dialog.js";
+import { RemoteField } from "./remote_field.js";
 import { SizeField } from "./size_field.js";
 import { TwoStepButton } from "./two_step_button.js";
 
@@ -25,7 +26,8 @@ export class SetupView {
     this.form = document.getElementById("setup-form");
     this.name = document.getElementById("pair-name");
     this.localPath = document.getElementById("setup-local-path");
-    this.remote = document.getElementById("setup-remote");
+    this.remote = new RemoteField(document.getElementById("remote-field"));  // has .value and .disabled like an input
+    this.remoteHint = document.getElementById("setup-remote-hint");
     this.maxSize = new SizeField(document.getElementById("size-field"));  // has .value and .disabled like an input
     this.exclusionList = document.getElementById("exclusion-list");
     this.exclusionEmpty = document.getElementById("exclusion-empty");
@@ -69,7 +71,7 @@ export class SetupView {
       const confirmed = await this.confirmDialog.ask({
         title: "Delete folder pair?",
         text: `"${this.savedName}" will be removed from the list. `
-          + "The files in its folders, on this PC and on OneDrive, are not touched.",
+          + "The files in its folders, on this PC and on the remote, are not touched.",
         confirmLabel: "Delete pair",
       });
       if (confirmed) onDelete();
@@ -89,6 +91,25 @@ export class SetupView {
         this.localPath.focus();
       }
     });
+  }
+
+  /**
+   * Tell the form which remotes rclone knows (the dropdown of the remote field) and
+   * explain the situation in the hint under it. Call it BEFORE `open()`, so the pair
+   * that is opened is shown against the right list.
+   *
+   * @param {{remotes: {name: string, type: string}[], error: string}} listing  from `ApiClient.getRemotes()`
+   */
+  setRemotes({ remotes, error }) {
+    this.remote.setRemotes(remotes);
+
+    if (error) {
+      this.remoteHint.textContent = error;
+    } else if (remotes.length === 0) {
+      this.remoteHint.textContent = "rclone has no remotes yet. Create one with \"rclone config\", then open this form again.";
+    } else {
+      this.remoteHint.textContent = "One of your rclone remotes (the cloud), optionally followed by a folder on it, e.g. Documents.";
+    }
   }
 
   /**
@@ -126,15 +147,14 @@ export class SetupView {
 
   /**
    * Put the default values into the form, WITHOUT saving them (the user still
-   * has to click Save). Name and local folder are kept: they are specific to
-   * this pair and have no meaningful default.
+   * has to click Save). Name, local folder and remote are kept: they are specific
+   * to this pair and have no meaningful default.
    */
   applyDefaults(defaults) {
-    this.remote.value = defaults.remote;
     this.maxSize.value = defaults.max_size;
     this.exclusions = [...defaults.exclusions];
     this.#renderExclusions();
-    this.showMessage("Defaults loaded (name and local folder were kept). Click Save to keep them.", "success");
+    this.showMessage("Defaults loaded (name, local folder and remote were kept). Click Save to keep them.", "success");
   }
 
   /** Read the form back into a pair object for the backend. */
@@ -214,7 +234,7 @@ export class SetupView {
 
   /**
    * rclone matches exclusions against paths INSIDE the synced folder, so a full
-   * path such as "/Docs/Vault/Archive" (when the remote is "onedrive:Docs/Vault")
+   * path such as "/Docs/Vault/Archive" (when the remote is "mycloud:Docs/Vault")
    * would never match anything. If the pattern starts with the remote's folder or
    * the local folder, cut that part off and anchor the rest at the top: "/Archive".
    * Anything else is returned unchanged.

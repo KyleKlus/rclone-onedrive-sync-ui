@@ -10,7 +10,7 @@ class SyncMode(str, Enum):
     """The two ways the app can synchronise. The mode applies to ALL folder pairs."""
 
     BISYNC = "bisync"      # Two-way: changes on both sides are merged.
-    DOWNLOAD = "download"  # One-way: this PC is made to match OneDrive.
+    DOWNLOAD = "download"  # One-way: this PC is made to match the remote.
 
 
 class SyncState(str, Enum):
