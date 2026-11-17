@@ -27,6 +27,13 @@ from .command.rclone import FilterFiles, RcloneCommandBuilder, RcloneRunner
 from .errors import RcloneNotFoundError
 from .models import RunOptions, SyncMode, SyncState
 from .pairs import FolderPair
+from .remote_health import (
+    SOURCE_RUN,
+    RemoteHealth,
+    find_expired_login_line,
+    reconnect_command,
+    remote_name_of,
+)
 
 _ACCESS_FILE_CONTENT = (
     "This file is used by 'rclone bisync --check-access'.\n"
@@ -57,6 +64,14 @@ def describe_run(options: RunOptions, pair_count: int = 1) -> str:
     return text
 
 
+def expired_login_message(remote_name: str) -> str:
+    """The plain-words explanation for a pair that failed because its login expired."""
+    return (
+        f"The login for the remote '{remote_name}' has expired. "
+        f"Sign in again by running this in a terminal: {reconnect_command(remote_name)}"
+    )
+
+
 def idle_runtime() -> dict:
     """What a pair reports when it is not part of the latest run (same keys as ``PairJob.snapshot``)."""
     return {
@@ -82,12 +97,15 @@ class PairJob:
         runner: RcloneRunner,
         log_buffer: LogBuffer,
         on_finished: Callable[["PairJob"], None],
+        remote_health: RemoteHealth,
         automatic_exclusions: tuple = (),
     ) -> None:
         """
         ``runner`` must be used by this job only: every job has its own, so
         stopping one pair never touches another pair's rclone.
         ``on_finished`` is called (from the job's thread) when the job is over.
+        ``remote_health`` is told when rclone says the remote's login has expired,
+        and when a run with the remote worked after all.
         ``automatic_exclusions`` are filter patterns added to the user's own: the
         folders of pairs that lie inside this one and are synced by those pairs.
         """
@@ -99,6 +117,8 @@ class PairJob:
         self._runner = runner
         self._log = log_buffer
         self._on_finished = on_finished
+        self._remote_health = remote_health
+        self._remote_name = remote_name_of(pair.setup.remote)
 
         # Everything below is protected by self._lock.
         self._lock = threading.Lock()
@@ -109,6 +129,7 @@ class PairJob:
         self._exit_code: Optional[int] = None
         self._stop_requested = False
         self._needs_resync = False
+        self._login_expired = False
 
     # ------------------------------------------------------------------
     # Reading the state
@@ -128,6 +149,15 @@ class PairJob:
     def needs_resync(self) -> bool:
         with self._lock:
             return self._needs_resync
+
+    @property
+    def login_expired(self) -> bool:
+        with self._lock:
+            return self._login_expired
+
+    @property
+    def remote_name(self) -> str:
+        return self._remote_name
 
     def snapshot(self) -> dict:
         """Everything the UI shows about this pair's run (see also ``idle_runtime``)."""
@@ -230,6 +260,11 @@ class PairJob:
         if "must run --resync" in line.lower():
             with self._lock:
                 self._needs_resync = True
+        expired_line = find_expired_login_line(line)
+        if expired_line is not None:
+            with self._lock:
+                self._login_expired = True
+            self._remote_health.mark_expired(self._remote_name, expired_line, SOURCE_RUN)
 
     def _finish(self, exit_code: Optional[int], error_message: Optional[str]) -> None:
         """Decide the final state and tell the user in plain words."""
@@ -243,6 +278,10 @@ class PairJob:
             elif error_message is None and exit_code == 0:
                 self._state = SyncState.SUCCEEDED
                 self._message = "Finished successfully. Everything is up to date."
+                self._remote_health.mark_ok(self._remote_name)
+            elif self._login_expired:
+                self._state = SyncState.FAILED
+                self._message = expired_login_message(self._remote_name)
             else:
                 self._state = SyncState.FAILED
                 self._message = error_message or f"rclone stopped with an error (exit code {exit_code}). See the log."

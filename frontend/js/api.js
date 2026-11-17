@@ -32,6 +32,15 @@ export class ApiClient {
   }
 
   /**
+   * Ask the backend to check the logins of the remotes in use right now. It answers at
+   * once; the result shows up in `remote_health` of the next status.
+   * @returns {Promise<object>} The remote health as it is at this moment.
+   */
+  checkRemotes() {
+    return this.#request("POST", "/api/remotes/check");
+  }
+
+  /**
    * @returns {Promise<{remotes: {name: string, type: string}[], error: string}>}
    *   The remotes (clouds) rclone has configured, names without the colon. If rclone could
    *   not be asked, `remotes` is empty and `error` says why.

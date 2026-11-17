@@ -104,6 +104,31 @@ PAIR_NAME_MAX_LENGTH = 40
 MIGRATED_PAIR_NAME = "Folder pair 1"
 
 # --------------------------------------------------------------------------
+# Expired logins
+# --------------------------------------------------------------------------
+
+# Seconds between two automatic checks of the remotes that folder pairs use.
+REMOTE_CHECK_INTERVAL_SECONDS = 30 * 60
+
+# Longest time one remote may take to answer a check.
+REMOTE_CHECK_TIMEOUT_SECONDS = 45
+
+# Lower-case pieces of rclone output that mean "sign in again". A line that
+# contains any of them marks its remote as expired.
+EXPIRED_LOGIN_PATTERNS = (
+    "invalid session token",
+    "missing x-apple-webauth-token",
+    "maybe it has expired",
+    "config reconnect",
+    "couldn't fetch token",
+    "oauth2: cannot fetch token",
+    "invalid_grant",
+    "invalid refresh token",
+    "refresh token has expired",
+    "token refresh failed",
+)
+
+# --------------------------------------------------------------------------
 # Log
 # --------------------------------------------------------------------------
 

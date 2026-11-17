@@ -103,6 +103,19 @@ class RcloneCommandBuilder:
         target = join_remote_path(setup.remote, config.ACCESS_CHECK_FILENAME)
         return [self._binary, "copyto", "--ignore-existing", "-v", str(local_file), target]
 
+    def build_probe_command(self, remote_name: str) -> list:
+        """!
+        @brief The command that tests whether a remote's login works.
+        @param remote_name A remote name without the colon.
+        @return `rclone lsd <name>:` with short timeouts and no retries: it lists the
+                top-level folders only, so it is cheap on any size of drive.
+        """
+        return [
+            self._binary, "lsd", f"{remote_name}:",
+            "--contimeout", "15s", "--timeout", "30s",
+            "--retries", "1", "--low-level-retries", "1",
+        ]
+
     def build_list_remotes_command(self) -> list:
         """
         List every remote rclone has configured, with its type:

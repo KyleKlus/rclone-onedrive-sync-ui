@@ -33,6 +33,7 @@ export class StatusView {
     this.factDuration = document.getElementById("fact-duration");
     this.factPairs = document.getElementById("fact-pairs");
     this.resyncPairs = document.getElementById("resync-pairs");
+    this.activityBar = document.getElementById("activity-bar");
     this.connectionBadge = document.getElementById("connection-badge");
     this.connectionText = document.getElementById("connection-text");
 
@@ -51,6 +52,7 @@ export class StatusView {
     this.factMode.textContent = this.#describeMode(status);
     this.factStarted.textContent = status.started_at ? this.#formatClock(status.started_at) : "-";
     this.factPairs.textContent = this.#describePairs(status);
+    this.activityBar.style.setProperty("--progress", String(this.#progressOf(status)));
     this.#renderDuration();
 
     const needResync = status.pairs.filter((pair) => pair.needs_resync).map((pair) => `"${pair.name}"`);
@@ -64,6 +66,7 @@ export class StatusView {
     this.lastStatus = null;
     this.#setConnected(false);
     this.#renderState("offline", message);
+    this.activityBar.style.setProperty("--progress", "0");
   }
 
   // ------------------------------------------------------------------
@@ -102,6 +105,20 @@ export class StatusView {
     return isBusy
       ? `${finished.length} of ${inRun.length} done`
       : `${succeeded.length} of ${inRun.length} OK`;
+  }
+
+  /**
+   * Share of the folder pairs of the current run that are done: while running every finished
+   * pair counts, afterwards only the successful ones, so a failure leaves a visible gap.
+   * @param {object} status The status received from the backend.
+   * @returns {number} A number from 0 to 1.
+   */
+  #progressOf(status) {
+    const inRun = status.pairs.filter((pair) => pair.enabled && pair.state !== "idle");
+    if (inRun.length === 0) return 0;
+    const isBusy = status.state === "running" || status.state === "stopping";
+    const counted = isBusy ? ["succeeded", "failed", "cancelled"] : ["succeeded"];
+    return inRun.filter((pair) => counted.includes(pair.state)).length / inRun.length;
   }
 
   #renderDuration() {

@@ -12,6 +12,10 @@ Behaviour is chosen with the environment variable FAKE_RCLONE_MODE:
 one "name:  type" line per remote. The remotes come from FAKE_RCLONE_REMOTES
 ("name:type,name:type"); FAKE_RCLONE_REMOTES_FAIL=1 makes the listing fail.
 
+FAKE_RCLONE_EXPIRED ("icloud,work") makes every command that targets one of those remotes
+fail with the iCloud "Invalid Session Token" error, like an expired login. `lsd`, the
+command the app uses to check a remote, otherwise succeeds at once.
+
 Independent of the mode, a command fails if any argument contains FAIL_ME.
 Tests use that to make ONE folder pair fail (by naming its folder FAIL_ME)
 while the other pairs of the same run succeed.
@@ -35,6 +39,19 @@ if len(sys.argv) > 1 and sys.argv[1] == "listremotes":
         if entry:
             name, _, remote_type = entry.partition(":")
             print(f"{name + ':':<12} {remote_type}", flush=True)
+    sys.exit(0)
+
+expired_remotes = [name for name in os.environ.get("FAKE_RCLONE_EXPIRED", "").split(",") if name]
+for argument in sys.argv[2:]:
+    for name in expired_remotes:
+        if argument.startswith(name + ":"):
+            print(f"ERROR : Failed to create file system for \"{argument}\": HTTP error 400 (400 Bad Request) "
+                  f"returned body: \"{{\\\"success\\\":false,\\\"error\\\":\\\"Invalid Session Token\\\"}}\"",
+                  file=sys.stderr, flush=True)
+            sys.exit(1)
+
+if len(sys.argv) > 1 and sys.argv[1] == "lsd":
+    print("          -1 2026-01-01 00:00:00        -1 Documents", flush=True)
     sys.exit(0)
 
 print("ARGS: " + " ".join(sys.argv[1:]), flush=True)

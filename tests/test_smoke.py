@@ -382,6 +382,139 @@ class RemoteListTests(ServerTestCase):
         )
 
 
+class ExpiredLoginTests(ServerTestCase):
+    """Remotes whose login has expired are noticed and the user is told how to reconnect."""
+
+    def expire(self, *remotes):
+        """Make the fake rclone fail like an expired login for these remotes (restored after the test)."""
+        self.addCleanup(os.environ.pop, "FAKE_RCLONE_EXPIRED", None)
+        os.environ["FAKE_RCLONE_EXPIRED"] = ",".join(remotes)
+
+    def renew(self):
+        os.environ.pop("FAKE_RCLONE_EXPIRED", None)
+
+    def health(self):
+        _, status = self.request("GET", "/api/status")
+        return status["remote_health"]
+
+    def run_check(self):
+        """Press 'check again' and wait until the check is over."""
+        status, _ = self.request("POST", "/api/remotes/check")
+        self.assertEqual(status, 202)
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            health = self.health()
+            if not health["checking"] and health["checked_at"] is not None:
+                return health
+            time.sleep(0.05)
+        self.fail("The check did not finish")
+
+    def test_nothing_is_flagged_when_all_logins_work(self):
+        self.create_pair("Cloud", remote="icloud:Docs")
+        health = self.run_check()
+        self.assertEqual(health["expired"], [])
+
+    def test_a_check_flags_an_expired_login_and_suggests_reconnecting(self):
+        self.create_pair("Cloud", remote="icloud:Docs")
+        self.expire("icloud")
+        health = self.run_check()
+        self.assertEqual([item["name"] for item in health["expired"]], ["icloud"])
+        item = health["expired"][0]
+        self.assertEqual(item["command"], "rclone config reconnect icloud:")
+        self.assertEqual(item["source"], "check")
+        self.assertIn("Invalid Session Token", item["reason"])
+
+    def test_reconnecting_clears_the_flag_on_the_next_check(self):
+        self.create_pair("Cloud", remote="icloud:Docs")
+        self.expire("icloud")
+        self.assertEqual(len(self.run_check()["expired"]), 1)
+        self.renew()
+        self.assertEqual(self.run_check()["expired"], [])
+
+    def test_only_the_expired_remote_is_flagged(self):
+        self.create_separate_pairs("Photos")
+        self.create_pair("Cloud", remote="icloud:Docs", local_path=str(self.make_folder("cloud")))
+        self.expire("icloud")
+        names = [item["name"] for item in self.run_check()["expired"]]
+        self.assertEqual(names, ["icloud"])
+
+    def test_a_switched_off_pair_is_not_checked_or_reported(self):
+        pair = self.create_pair("Cloud", remote="icloud:Docs")
+        self.request("PUT", f"/api/pairs/{pair['id']}/enabled", {"enabled": False})
+        self.expire("icloud")
+        self.assertEqual(self.run_check()["expired"], [])
+
+    def test_a_deleted_pair_takes_its_warning_with_it(self):
+        pair = self.create_pair("Cloud", remote="icloud:Docs")
+        self.expire("icloud")
+        self.assertEqual(len(self.run_check()["expired"]), 1)
+        self.request("DELETE", f"/api/pairs/{pair['id']}")
+        self.assertEqual(self.health()["expired"], [])
+
+    def test_a_failed_run_names_the_expired_login_and_flags_it(self):
+        self.create_pair("Cloud", remote="icloud:Docs")
+        self.expire("icloud")
+        self.request("POST", "/api/sync", {"mode": "bisync", "resync": False})
+        status = self.wait_for_state({"failed"})
+        self.assertIn("rclone config reconnect icloud:", status["message"])
+        self.assertIn("rclone config reconnect icloud:", status["pairs"][0]["message"])
+        expired = status["remote_health"]["expired"]
+        self.assertEqual([(item["name"], item["source"]) for item in expired], [("icloud", "run")])
+
+    def test_a_successful_run_clears_the_flag(self):
+        self.create_pair("Cloud", remote="icloud:Docs")
+        self.expire("icloud")
+        self.request("POST", "/api/sync", {"mode": "bisync", "resync": False})
+        self.wait_for_state({"failed"})
+        self.renew()
+        self.request("POST", "/api/sync", {"mode": "bisync", "resync": False})
+        status = self.wait_for_state({"succeeded"})
+        self.assertEqual(status["remote_health"]["expired"], [])
+
+    def test_a_run_with_several_pairs_names_every_expired_remote(self):
+        self.create_pair("Cloud", remote="icloud:Docs", local_path=str(self.make_folder("cloud")))
+        self.create_separate_pairs("Photos")
+        self.expire("icloud")
+        self.request("POST", "/api/sync", {"mode": "bisync", "resync": False})
+        status = self.wait_for_state({"failed"})
+        self.assertIn("1 of 2 folder pairs failed", status["message"])
+        self.assertIn("rclone config reconnect icloud:", status["message"])
+        self.assertNotIn("onedrive:", status["message"])
+
+    def test_the_check_endpoint_is_guarded_like_the_rest(self):
+        status, _ = self.request("POST", "/api/remotes/check", headers={"Host": "evil.com"})
+        self.assertEqual(status, 403)
+
+    def test_known_messages_are_recognised(self):
+        from backend.remote_health import find_expired_login_line
+        expired = [
+            'HTTP error 400 (400 Bad Request) returned body:"{\\"success\\":false,\\"error\\":\\"Invalid Session Token\\"}"',
+            "Failed: Missing X-APPLE-WEBAUTH-TOKEN cookie",
+            "couldn't fetch token - maybe it has expired? - refresh with \"rclone config reconnect onedrive:\"",
+            "oauth2: cannot fetch token: 400 Bad Request: invalid_grant",
+        ]
+        for line in expired:
+            self.assertIsNotNone(find_expired_login_line(line), line)
+
+    def test_ordinary_errors_are_not_mistaken_for_an_expired_login(self):
+        from backend.remote_health import find_expired_login_line
+        ordinary = [
+            "dial tcp: lookup www.icloud.com: no such host",
+            "Failed to copy: file name too long",
+            "Bisync critical error: path1 and path2 are out of sync, must run --resync",
+            "NOTICE: Config file not found",
+            "",
+        ]
+        for line in ordinary:
+            self.assertIsNone(find_expired_login_line(line), line)
+
+    def test_remote_names_and_commands(self):
+        from backend.remote_health import reconnect_command, remote_name_of
+        self.assertEqual(remote_name_of("icloud:Docs/Work"), "icloud")
+        self.assertEqual(remote_name_of("icloud:"), "icloud")
+        self.assertEqual(reconnect_command("icloud"), "rclone config reconnect icloud:")
+
+
 class SyncTests(ServerTestCase):
     def test_start_requires_a_local_folder(self):
         self.create_pair(local_path="")

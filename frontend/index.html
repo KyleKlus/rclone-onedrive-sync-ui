@@ -20,9 +20,25 @@
   <!-- ============================ HEADER ============================ -->
   <header class="app-header">
     <h1 class="app-title">Rclone Sync</h1>
-    <div class="connection" id="connection-badge" data-connected="false">
-      <span class="connection__dot" aria-hidden="true"></span>
-      <span id="connection-text">Connecting ...</span>
+    <div class="header-badges">
+      <div class="expiry" id="expiry" hidden>
+        <button type="button" class="expiry__badge" id="expiry-badge" aria-expanded="false" aria-controls="expiry-popover">
+          <span class="expiry__glyph" aria-hidden="true">!</span>
+          <span id="expiry-text">Login expired</span>
+        </button>
+        <div class="expiry__popover" id="expiry-popover" role="region" aria-label="Expired logins" hidden>
+          <p class="expiry__intro" id="expiry-intro"></p>
+          <ul class="expiry__list" id="expiry-list"></ul>
+          <div class="expiry__footer">
+            <button type="button" class="btn expiry__check" id="expiry-check">Check again</button>
+            <span class="expiry__checked" id="expiry-checked"></span>
+          </div>
+        </div>
+      </div>
+      <div class="connection" id="connection-badge" data-connected="false">
+        <span class="connection__dot" aria-hidden="true"></span>
+        <span id="connection-text">Connecting ...</span>
+      </div>
     </div>
   </header>
 
@@ -52,7 +68,7 @@
             <div class="facts__item"><dt>Duration</dt><dd id="fact-duration">-</dd></div>
             <div class="facts__item"><dt>Folder pairs</dt><dd id="fact-pairs">-</dd></div>
           </dl>
-          <div class="activity-bar" id="activity-bar" aria-hidden="true"></div>
+          <div class="activity-bar" id="activity-bar" aria-hidden="true"><div class="activity-bar__fill" id="activity-fill"></div></div>
         </div>
       </div>
 

@@ -9,6 +9,7 @@ Endpoints
 ---------
 GET    /api/status               Current system state, including every folder pair's own state.
 GET    /api/setup/defaults       The default values for a new pair (used by "Reset to defaults").
+POST   /api/remotes/check        Check the logins of the remotes in use now (answers at once; the result shows up in /api/status).
 GET    /api/remotes              The remotes (clouds) rclone has configured: {"remotes": [{"name", "type"}], "error"}.
 GET    /api/pairs/<id>           One folder pair with its full setup.
 POST   /api/pairs                Create a folder pair (not while a sync runs).
@@ -29,6 +30,7 @@ from ..errors import PairNotFoundError, SetupError, SyncBusyError, SyncConfigErr
 from ..command.log_buffer import LogBuffer
 from ..command.remotes import RemoteCatalog
 from ..models import SyncMode
+from ..remote_health import RemoteHealthMonitor
 from ..pairs import FolderPairStore
 from ..setup import PairSetup
 from ..sync_manager import SyncManager
@@ -60,17 +62,20 @@ class ApiRouter:
         sync_manager: SyncManager,
         log_buffer: LogBuffer,
         remote_catalog: RemoteCatalog,
+        remote_monitor: RemoteHealthMonitor,
     ) -> None:
         self._pair_store = pair_store
         self._sync_manager = sync_manager
         self._log = log_buffer
         self._remote_catalog = remote_catalog
+        self._remote_monitor = remote_monitor
 
         # (HTTP method, path pattern, handler). "{name}" in a pattern matches one URL part.
         self._routes: list = [
             ("GET", "/api/status", self._get_status),
             ("GET", "/api/setup/defaults", self._get_default_setup),
             ("GET", "/api/remotes", self._get_remotes),
+            ("POST", "/api/remotes/check", self._post_remotes_check),
             ("GET", "/api/pairs/{pair_id}", self._get_pair),
             ("POST", "/api/pairs", self._post_pair),
             ("PUT", "/api/pairs/{pair_id}", self._put_pair),
@@ -112,7 +117,9 @@ class ApiRouter:
     # ------------------------------------------------------------------
 
     def _get_status(self, request: ApiRequest) -> ApiResponse:
-        return ApiResponse(200, self._sync_manager.status())
+        status = self._sync_manager.status()
+        status["remote_health"] = self._remote_monitor.snapshot()
+        return ApiResponse(200, status)
 
     def _get_default_setup(self, request: ApiRequest) -> ApiResponse:
         """The defaults live in config.py; the UI asks for them instead of copying them."""
@@ -125,6 +132,11 @@ class ApiRouter:
         the answer is still 200: an empty list plus an ``error`` text the UI can show.
         """
         return ApiResponse(200, self._remote_catalog.list_remotes().to_dict())
+
+    def _post_remotes_check(self, request: ApiRequest) -> ApiResponse:
+        """Queue a check of the remotes' logins; the answer is the state right now."""
+        self._remote_monitor.check_now()
+        return ApiResponse(202, self._remote_monitor.snapshot())
 
     # ------------------------------------------------------------------
     # Handlers: folder pairs

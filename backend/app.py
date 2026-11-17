@@ -15,6 +15,7 @@ from .command.log_buffer import LogBuffer
 from .command.rclone import FilterFiles, RcloneCommandBuilder, RcloneRunner
 from .command.remotes import RemoteCatalog
 from .pairs import FolderPairStore
+from .remote_health import RemoteHealth, RemoteHealthMonitor
 from .sync_manager import SyncManager
 
 
@@ -39,6 +40,7 @@ class Application:
         )
 
         command_builder = RcloneCommandBuilder(rclone_binary)
+        remote_health = RemoteHealth()
 
         self.sync_manager = SyncManager(
             pair_store=pair_store,
@@ -47,8 +49,17 @@ class Application:
             filter_files=FilterFiles(data_dir / "filters"),
             runner_factory=RcloneRunner,   # every folder pair's job gets its own runner
             rclone_binary=rclone_binary,
+            remote_health=remote_health,
         )
-        router = ApiRouter(pair_store, self.sync_manager, log_buffer, RemoteCatalog(command_builder))
+        self.remote_monitor = RemoteHealthMonitor(
+            health=remote_health,
+            pair_store=pair_store,
+            command_builder=command_builder,
+            is_busy=self.sync_manager.is_busy,
+        )
+        router = ApiRouter(
+            pair_store, self.sync_manager, log_buffer, RemoteCatalog(command_builder), self.remote_monitor
+        )
         self.web_server = WebServer(host, port, frontend_dir, router)
 
     @property
@@ -57,9 +68,11 @@ class Application:
 
     def run(self) -> None:
         """Serve requests until ``shutdown()`` is called."""
+        self.remote_monitor.start()
         self.web_server.serve_forever()
 
     def shutdown(self) -> None:
         """Stop a running sync (if any) and the web server."""
+        self.remote_monitor.stop()
         self.sync_manager.stop()
         self.web_server.shutdown()

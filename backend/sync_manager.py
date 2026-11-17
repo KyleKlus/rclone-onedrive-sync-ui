@@ -33,6 +33,7 @@ from .models import RunOptions, SyncMode, SyncState
 from .pair_job import STOPPED_MESSAGE, PairJob, describe_run, idle_runtime
 from .pair_relations import automatic_exclusions, find_conflict, lies_inside
 from .pairs import FolderPair, FolderPairStore
+from .remote_health import RemoteHealth, reconnect_command
 
 
 class SyncManager:
@@ -46,6 +47,7 @@ class SyncManager:
         filter_files: FilterFiles,
         runner_factory: Callable[[], RcloneRunner],
         rclone_binary: str,
+        remote_health: RemoteHealth,
     ) -> None:
         """``runner_factory`` is called once per job, so every job gets its own runner."""
         self._pair_store = pair_store
@@ -54,6 +56,7 @@ class SyncManager:
         self._filter_files = filter_files
         self._runner_factory = runner_factory
         self._rclone_binary = rclone_binary
+        self._remote_health = remote_health
 
         # Everything below is protected by self._lock.
         self._lock = threading.Lock()
@@ -158,6 +161,7 @@ class SyncManager:
             runner=self._runner_factory(),
             log_buffer=self._log,
             on_finished=self._job_finished,
+            remote_health=self._remote_health,
             automatic_exclusions=automatic_exclusions(pair.setup, others),
         )
 
@@ -200,6 +204,9 @@ class SyncManager:
         needing_resync = [job for job in failed if job.needs_resync]
         if needing_resync:
             message += f" rclone says a first-time setup (resync) is required for: {_join_names(needing_resync)}."
+        expired = sorted({job.remote_name for job in failed if job.login_expired})
+        for name in expired:
+            message += f" The login for '{name}' has expired: run {reconnect_command(name)} in a terminal."
         return SyncState.FAILED, message
 
     def _log_outcome(self, outcome: Optional[tuple]) -> None:

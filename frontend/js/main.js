@@ -12,6 +12,7 @@
 
 import { ApiClient, ApiError } from "./api.js";
 import { ControlsView } from "./controls_view.js";
+import { ExpiryView } from "./expiry_view.js";
 import { LogView } from "./log_view.js";
 import { PairsView } from "./pairs_view.js";
 import { SetupPanel } from "./setup_panel.js";
@@ -25,6 +26,7 @@ class App {
   constructor() {
     this.api = new ApiClient();
     this.statusView = new StatusView();
+    this.expiryView = new ExpiryView({ onCheck: () => this.#checkRemotes() });
     this.logView = new LogView();
     this.controlsView = new ControlsView({
       onStart: (options) => this.#startSync(options),
@@ -87,6 +89,7 @@ class App {
       this.status = status;
 
       this.statusView.render(status);
+      this.expiryView.render(status.remote_health, isBusy);
       this.controlsView.render(status);
       this.pairsView.render(status.pairs, isBusy);
       this.setupView.setLocked(isBusy);
@@ -96,7 +99,17 @@ class App {
       this.lastLogId = log.last_id;
     } catch (error) {
       this.statusView.renderOffline(this.#messageOf(error));
+      this.expiryView.hide();
     }
+  }
+
+  /** Check the logins again. Never throws: the next poll shows the result. */
+  async #checkRemotes() {
+    try {
+      await this.api.checkRemotes();
+    } catch {
+    }
+    await this.#refresh();
   }
 
   // ------------------------------------------------------------------
