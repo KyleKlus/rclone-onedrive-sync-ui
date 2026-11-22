@@ -1,5 +1,6 @@
-"""
-One folder pair's sync job.
+"""!
+@file pair_job.py
+@brief One folder pair's sync job, run in a background thread.
 
 A ``PairJob`` runs rclone for exactly ONE folder pair, in its own background
 thread, and keeps the state of that pair (running / done / ...).
@@ -40,18 +41,24 @@ _ACCESS_FILE_CONTENT = (
     "It proves that both sides are reachable. Do not delete it.\n"
 )
 
-# Shown for a pair, and for the whole run, after the user pressed Stop.
 STOPPED_MESSAGE = (
     "Stopped by you. Files that were mid-transfer may be incomplete; run again to finish."
 )
 
 
 class _StepFailed(Exception):
-    """Internal: one step of a job failed and the job must be aborted."""
+    """!
+    @brief Internal exception: one step of a job failed and the job must be aborted.
+    """
 
 
 def describe_run(options: RunOptions, pair_count: int = 1) -> str:
-    """The plain-words sentence for 'a sync is running', used in the UI and the log."""
+    """!
+    @brief Build the plain-words sentence for "a sync is running", used in the UI and the log.
+    @param options What the user asked for (mode, resync, dry run).
+    @param pair_count How many folder pairs take part in the run; only mentioned when not 1.
+    @return The sentence to show.
+    """
     scope = "" if pair_count == 1 else f" for {pair_count} folder pairs"
     if options.mode is SyncMode.DOWNLOAD:
         text = f"Download is running{scope}. This PC is being made to match the remote."
@@ -65,7 +72,11 @@ def describe_run(options: RunOptions, pair_count: int = 1) -> str:
 
 
 def expired_login_message(remote_name: str) -> str:
-    """The plain-words explanation for a pair that failed because its login expired."""
+    """!
+    @brief Build the plain-words explanation for a pair that failed because its login expired.
+    @param remote_name Name of the rclone remote whose login expired.
+    @return The message, including the command that signs in again.
+    """
     return (
         f"The login for the remote '{remote_name}' has expired. "
         f"Sign in again by running this in a terminal: {reconnect_command(remote_name)}"
@@ -73,7 +84,10 @@ def expired_login_message(remote_name: str) -> str:
 
 
 def idle_runtime() -> dict:
-    """What a pair reports when it is not part of the latest run (same keys as ``PairJob.snapshot``)."""
+    """!
+    @brief Build what a pair reports when it is not part of the latest run.
+    @return A dict with the same keys as ``PairJob.snapshot``.
+    """
     return {
         "state": SyncState.IDLE.value,
         "message": "",
@@ -85,7 +99,12 @@ def idle_runtime() -> dict:
 
 
 class PairJob:
-    """Syncs one folder pair in a background thread and reports its own state."""
+    """!
+    @brief Syncs one folder pair in a background thread and reports its own state.
+
+    Every attribute that changes while the job runs (state, message, timestamps,
+    exit code, stop/resync/login flags) is protected by one lock, ``self._lock``.
+    """
 
     def __init__(
         self,
@@ -100,14 +119,17 @@ class PairJob:
         remote_health: RemoteHealth,
         automatic_exclusions: tuple = (),
     ) -> None:
-        """
-        ``runner`` must be used by this job only: every job has its own, so
-        stopping one pair never touches another pair's rclone.
-        ``on_finished`` is called (from the job's thread) when the job is over.
-        ``remote_health`` is told when rclone says the remote's login has expired,
-        and when a run with the remote worked after all.
-        ``automatic_exclusions`` are filter patterns added to the user's own: the
-        folders of pairs that lie inside this one and are synced by those pairs.
+        """!
+        @brief Create a job for one folder pair; nothing runs until ``start()``.
+        @param pair The folder pair to sync.
+        @param options What the user asked for (mode, resync, dry run).
+        @param command_builder Builds the rclone command lines.
+        @param filter_files Writes the filter file with the exclusions.
+        @param runner Runs rclone. Must be used by this job only: every job has its own, so stopping one pair never touches another pair's rclone.
+        @param log_buffer The live log that rclone output and app messages are written to.
+        @param on_finished Called (from the job's thread) when the job is over.
+        @param remote_health Told when rclone says the remote's login has expired, and when a run with the remote worked after all.
+        @param automatic_exclusions Filter patterns added to the user's own: the folders of pairs that lie inside this one and are synced by those pairs. Default: none.
         """
         self.pair = pair
         self._automatic_exclusions = automatic_exclusions
@@ -120,7 +142,6 @@ class PairJob:
         self._remote_health = remote_health
         self._remote_name = remote_name_of(pair.setup.remote)
 
-        # Everything below is protected by self._lock.
         self._lock = threading.Lock()
         self._state = SyncState.IDLE
         self._message = "Starting."
@@ -131,36 +152,55 @@ class PairJob:
         self._needs_resync = False
         self._login_expired = False
 
-    # ------------------------------------------------------------------
-    # Reading the state
-    # ------------------------------------------------------------------
-
     @property
     def state(self) -> SyncState:
+        """!
+        @brief Get the current state of this pair's job.
+        @return The state.
+        """
         with self._lock:
             return self._state
 
     @property
     def message(self) -> str:
+        """!
+        @brief Get the plain-words message describing the current state.
+        @return The message.
+        """
         with self._lock:
             return self._message
 
     @property
     def needs_resync(self) -> bool:
+        """!
+        @brief Tell whether rclone reported that a first-time setup (resync) is required.
+        @return True if it did.
+        """
         with self._lock:
             return self._needs_resync
 
     @property
     def login_expired(self) -> bool:
+        """!
+        @brief Tell whether rclone reported that the remote's login has expired.
+        @return True if it did.
+        """
         with self._lock:
             return self._login_expired
 
     @property
     def remote_name(self) -> str:
+        """!
+        @brief Get the name of the rclone remote this pair uses.
+        @return The remote name without folder.
+        """
         return self._remote_name
 
     def snapshot(self) -> dict:
-        """Everything the UI shows about this pair's run (see also ``idle_runtime``)."""
+        """!
+        @brief Collect everything the UI shows about this pair's run.
+        @return A dict with state, message, started_at, finished_at, exit_code and needs_resync (see also ``idle_runtime``).
+        """
         with self._lock:
             return {
                 "state": self._state.value,
@@ -171,12 +211,10 @@ class PairJob:
                 "needs_resync": self._needs_resync,
             }
 
-    # ------------------------------------------------------------------
-    # Controlled by the SyncManager
-    # ------------------------------------------------------------------
-
     def start(self) -> None:
-        """Begin syncing in the background."""
+        """!
+        @brief Begin syncing in the background. Called by the SyncManager.
+        """
         with self._lock:
             self._state = SyncState.RUNNING
             self._started_at = time.time()
@@ -184,21 +222,28 @@ class PairJob:
         threading.Thread(target=self._run, name=f"sync-{self.pair.id}", daemon=True).start()
 
     def request_stop(self) -> None:
-        """Ask this pair's rclone to exit. The job reports CANCELLED itself once it has stopped."""
+        """!
+        @brief Ask this pair's rclone to exit. Called by the SyncManager.
+
+        Does nothing if the job is already stopping or finished. The job reports
+        CANCELLED itself once it has stopped.
+        """
         with self._lock:
             if self._state is not SyncState.RUNNING:
-                return  # already stopping or finished
+                return
             self._state = SyncState.STOPPING
             self._stop_requested = True
             self._message = "Stopping... waiting for rclone to exit."
         self._runner.terminate()
 
-    # ------------------------------------------------------------------
-    # The background job
-    # ------------------------------------------------------------------
-
     def _run(self) -> None:
-        """Everything that happens between 'start' and 'finished' for this pair."""
+        """!
+        @brief Do everything that happens between "start" and "finished" for this pair.
+
+        Runs in the background thread. Any unexpected exception is caught as a
+        last line of defence so the thread never dies silently; the manager is
+        always notified through ``on_finished`` so it may start waiting pairs.
+        """
         setup = self.pair.setup
         exit_code: Optional[int] = None
         error_message: Optional[str] = None
@@ -220,16 +265,19 @@ class PairJob:
             exit_code = self._runner.run(command, self._handle_rclone_line)
         except (RcloneNotFoundError, _StepFailed) as error:
             error_message = str(error)
-        except Exception as error:  # noqa: BLE001 - last line of defence for the thread
+        except Exception as error:
             error_message = f"Unexpected error: {error}"
 
         try:
             self._finish(exit_code, error_message)
         finally:
-            self._on_finished(self)  # the manager may now start waiting pairs
+            self._on_finished(self)
 
     def _write_filter_file(self) -> Path:
-        """The user's exclusions plus the folders that other folder pairs sync instead."""
+        """!
+        @brief Write the filter file: the user's exclusions plus the folders that other folder pairs sync instead.
+        @return Path of the written filter file.
+        """
         exclusions = self.pair.setup.exclusions
         for pattern in self._automatic_exclusions:
             if pattern not in exclusions:
@@ -238,9 +286,11 @@ class PairJob:
         return self._filter_files.write(self.pair.id, exclusions)
 
     def _prepare_access_files(self) -> None:
-        """
-        Make sure the RCLONE_TEST file exists on both sides, as required by
-        ``bisync --check-access``. Only done during first-time setup.
+        """!
+        @brief Make sure the RCLONE_TEST file exists on both sides, as required by ``bisync --check-access``.
+        @throws _StepFailed When the file could not be placed on the remote.
+
+        Only done during first-time setup.
         """
         setup = self.pair.setup
         local_file = Path(setup.local_path) / config.ACCESS_CHECK_FILENAME
@@ -255,7 +305,10 @@ class PairJob:
             raise _StepFailed("Could not place the access-check file on the remote.")
 
     def _handle_rclone_line(self, line: str) -> None:
-        """Called for every line rclone prints."""
+        """!
+        @brief Handle one line rclone printed: log it and watch for resync and expired-login hints.
+        @param line The output line.
+        """
         self._log.append(line, source=self.pair.name)
         if "must run --resync" in line.lower():
             with self._lock:
@@ -267,7 +320,11 @@ class PairJob:
             self._remote_health.mark_expired(self._remote_name, expired_line, SOURCE_RUN)
 
     def _finish(self, exit_code: Optional[int], error_message: Optional[str]) -> None:
-        """Decide the final state and tell the user in plain words."""
+        """!
+        @brief Decide the final state and tell the user in plain words.
+        @param exit_code Exit code of rclone, or None if it never ran.
+        @param error_message Reason the job failed before or besides rclone's exit code, or None.
+        """
         with self._lock:
             self._finished_at = time.time()
             self._exit_code = exit_code
@@ -295,5 +352,8 @@ class PairJob:
         self._log.append(f"== {final_state.value.upper()}: {final_message}", level=level, source=self.pair.name)
 
     def _log_app(self, text: str) -> None:
-        """A line written by this app (not by rclone), tagged with the pair's name."""
+        """!
+        @brief Write a line of this app (not of rclone) to the log, tagged with the pair's name.
+        @param text The line to write.
+        """
         self._log.append(text, level="app", source=self.pair.name)

@@ -1,7 +1,9 @@
 /**
- * setup_view.js
- * The setup of ONE folder pair: a header row (back button + renameable name)
- * and below it local folder, remote, max file size and the exclusion list.
+ * @file setup_view.js
+ * @brief The setup form of ONE folder pair.
+ *
+ * A header row (back button + renameable name) and below it local folder, remote,
+ * max file size and the exclusion list.
  *
  * The same form is used to create a new pair and to edit an existing one:
  * `open()` is told which of the two it is. Saving, resetting, deleting and going
@@ -13,22 +15,33 @@ import { RemoteField } from "./remote_field.js";
 import { SizeField } from "./size_field.js";
 import { TwoStepButton } from "./two_step_button.js";
 
+/**
+ * @brief The form for creating or editing a folder pair.
+ */
 export class SetupView {
   /**
+   * @brief Look up the elements and wire the buttons and keys.
    * @param {{
    *   onSave: (pair: object) => void,
    *   onReset: () => void,
    *   onDelete: () => void,
    *   onBack: () => void,
-   * }} callbacks
+   * }} callbacks Called when the user saves, resets, deletes or goes back.
+   *
+   * `this.remote` and `this.maxSize` have .value and .disabled like an input. `this.pairId`
+   * is the id of the pair being edited, or null while a new pair is created. `this.savedSnapshot`
+   * is the form as it was when loaded or last saved, used to tell if something was changed.
+   * Leaving with unsaved changes needs a second click, so nothing is lost by accident.
+   * Enter in the exclusion box adds the pattern instead of saving the form; Enter in the
+   * name field moves on to the local folder.
    */
   constructor({ onSave, onReset, onDelete, onBack }) {
     this.form = document.getElementById("setup-form");
     this.name = document.getElementById("pair-name");
     this.localPath = document.getElementById("setup-local-path");
-    this.remote = new RemoteField(document.getElementById("remote-field"));  // has .value and .disabled like an input
+    this.remote = new RemoteField(document.getElementById("remote-field"));
     this.remoteHint = document.getElementById("setup-remote-hint");
-    this.maxSize = new SizeField(document.getElementById("size-field"));  // has .value and .disabled like an input
+    this.maxSize = new SizeField(document.getElementById("size-field"));
     this.exclusionList = document.getElementById("exclusion-list");
     this.exclusionEmpty = document.getElementById("exclusion-empty");
     this.exclusionInput = document.getElementById("exclusion-input");
@@ -41,13 +54,10 @@ export class SetupView {
     this.message = document.getElementById("setup-message");
     this.lockNote = document.getElementById("setup-lock-note");
 
-    /** The exclusion patterns currently shown (edited locally until saved). */
     this.exclusions = [];
     this.isLocked = false;
 
-    /** Id of the pair being edited, or null while a new pair is being created. */
     this.pairId = null;
-    /** The form as it was when loaded or last saved; used to tell if something was changed. */
     this.savedSnapshot = "";
     this.savedName = "";
 
@@ -64,7 +74,6 @@ export class SetupView {
     });
 
     this.backButton.addEventListener("click", () => {
-      // Leaving with unsaved changes needs a second click, so nothing is lost by accident.
       if (!this.hasUnsavedChanges() || this.backConfirm.confirmed()) onBack();
     });
     this.deleteButton.addEventListener("click", async () => {
@@ -80,11 +89,10 @@ export class SetupView {
     this.exclusionAddButton.addEventListener("click", () => this.#addFromInput());
     this.exclusionInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
-        event.preventDefault();  // Enter adds the pattern instead of saving the form.
+        event.preventDefault();
         this.#addFromInput();
       }
     });
-    // Same for the name field: Enter keeps the text and does nothing else surprising.
     this.name.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
@@ -94,11 +102,10 @@ export class SetupView {
   }
 
   /**
-   * Tell the form which remotes rclone knows (the dropdown of the remote field) and
-   * explain the situation in the hint under it. Call it BEFORE `open()`, so the pair
-   * that is opened is shown against the right list.
+   * @brief Tell the form which remotes rclone knows and explain the situation in the hint under the field.
+   * @param {{remotes: {name: string, type: string}[], error: string}} listing From `ApiClient.getRemotes()`.
    *
-   * @param {{remotes: {name: string, type: string}[], error: string}} listing  from `ApiClient.getRemotes()`
+   * Call it before `open()`, so the pair that is opened is shown against the right list.
    */
   setRemotes({ remotes, error }) {
     this.remote.setRemotes(remotes);
@@ -113,11 +120,9 @@ export class SetupView {
   }
 
   /**
-   * Fill the form with a pair from the backend (an existing pair) or with the
-   * default setup (a new pair, `pairId` = null and `pair.name` = "").
-   *
-   * @param {object} pair     {name, local_path, remote, max_size, exclusions}
-   * @param {string|null} pairId
+   * @brief Fill the form with an existing pair or with the default setup of a new pair.
+   * @param {object} pair {name, local_path, remote, max_size, exclusions}
+   * @param {string|null} pairId Id of the pair, or null for a new pair (with `pair.name` = "").
    */
   open(pair, pairId) {
     this.pairId = pairId;
@@ -128,14 +133,17 @@ export class SetupView {
     const isNew = pairId === null;
     this.deleteButton.hidden = isNew;
     this.saveButton.lastChild.textContent = isNew ? "Create folder pair" : "Save folder pair";
-    this.backLabel.textContent = "Back";  // idle text of the back button
+    this.backLabel.textContent = "Back";
     this.backConfirm.idleText = "Back";
   }
 
   /**
-   * After a successful save: show what the backend really stored (it cleans values
-   * up) and remember that this is the new saved state. The form may now belong to
-   * a pair that did not exist before, hence the new id.
+   * @brief Show what the backend really stored and remember it as the saved state.
+   * @param {object} pair The pair as saved.
+   * @param {string} pairId Id of the pair.
+   *
+   * Used after a successful save. The backend cleans values up. The form may now
+   * belong to a pair that did not exist before, hence the new id.
    */
   markSaved(pair, pairId) {
     this.pairId = pairId;
@@ -146,9 +154,11 @@ export class SetupView {
   }
 
   /**
-   * Put the default values into the form, WITHOUT saving them (the user still
-   * has to click Save). Name, local folder and remote are kept: they are specific
-   * to this pair and have no meaningful default.
+   * @brief Put the default values into the form without saving them.
+   * @param {{max_size: string, exclusions: string[]}} defaults The default setup.
+   *
+   * The user still has to click Save. Name, local folder and remote are kept: they
+   * are specific to this pair and have no meaningful default.
    */
   applyDefaults(defaults) {
     this.maxSize.value = defaults.max_size;
@@ -157,7 +167,10 @@ export class SetupView {
     this.showMessage("Defaults loaded (name, local folder and remote were kept). Click Save to keep them.", "success");
   }
 
-  /** Read the form back into a pair object for the backend. */
+  /**
+   * @brief Read the form back into a pair object for the backend.
+   * @return {object} {name, local_path, remote, max_size, exclusions}
+   */
   collect() {
     return {
       name: this.name.value,
@@ -168,12 +181,18 @@ export class SetupView {
     };
   }
 
-  /** True if the form differs from what was loaded or last saved. */
+  /**
+   * @brief Tell whether the form differs from what was loaded or last saved.
+   * @return {boolean} True if there are unsaved changes.
+   */
   hasUnsavedChanges() {
     return JSON.stringify(this.collect()) !== this.savedSnapshot;
   }
 
-  /** Lock the whole form while a sync is running. */
+  /**
+   * @brief Lock the whole form while a sync is running.
+   * @param {boolean} isLocked True while a sync runs.
+   */
   setLocked(isLocked) {
     if (isLocked === this.isLocked) return;
     this.isLocked = isLocked;
@@ -183,21 +202,32 @@ export class SetupView {
       element.disabled = isLocked;
     }
     this.lockNote.hidden = !isLocked;
-    this.#renderExclusions();  // redraws the remove buttons in the right state
+    this.#renderExclusions();
   }
 
+  /**
+   * @brief Show a short message in the form.
+   * @param {string} text The message.
+   * @param {string} [kind] "error" or "success"; picks the colour.
+   */
   showMessage(text, kind = "success") {
     this.message.textContent = text;
     this.message.dataset.kind = kind;
   }
 
-  /** Put the cursor in the name field (used right after "Add folder pair"). */
+  /**
+   * @brief Put the cursor in the name field, used right after "Add folder pair".
+   */
   focusName() {
     this.name.focus();
   }
 
-  // ------------------------------------------------------------------
-
+  /**
+   * @brief Put a pair into the form and remember it as the saved state.
+   * @param {object} pair {name, local_path, remote, max_size, exclusions}
+   *
+   * The saved name is what the popup calls the pair, even if the name field was edited since.
+   */
   #fill(pair) {
     this.name.value = pair.name;
     this.localPath.value = pair.local_path;
@@ -206,13 +236,19 @@ export class SetupView {
     this.exclusions = [...pair.exclusions];
     this.#renderExclusions();
     this.savedSnapshot = JSON.stringify(this.collect());
-    this.savedName = pair.name;  // what the popup calls the pair, even if the name field was edited since
+    this.savedName = pair.name;
   }
 
+  /**
+   * @brief Disarm the two-step back button.
+   */
   #resetConfirmations() {
     this.backConfirm.reset();
   }
 
+  /**
+   * @brief Add the pattern typed in the exclusion box to the list.
+   */
   #addFromInput() {
     const typed = this.exclusionInput.value.trim();
     if (!typed) return;
@@ -233,11 +269,15 @@ export class SetupView {
   }
 
   /**
-   * rclone matches exclusions against paths INSIDE the synced folder, so a full
+   * @brief Turn a full path into a pattern relative to the synced folder.
+   * @param {string} pattern The pattern as typed.
+   * @return {string} The shortened pattern, or the input unchanged.
+   *
+   * rclone matches exclusions against paths inside the synced folder, so a full
    * path such as "/Docs/Vault/Archive" (when the remote is "mycloud:Docs/Vault")
    * would never match anything. If the pattern starts with the remote's folder or
-   * the local folder, cut that part off and anchor the rest at the top: "/Archive".
-   * Anything else is returned unchanged.
+   * the local folder, that part is cut off and the rest is anchored at the top:
+   * "/Archive".
    */
   #relativeToSyncFolder(pattern) {
     const clean = (text) => text.replaceAll("\\", "/").replace(/^\/+|\/+$/g, "");
@@ -256,12 +296,19 @@ export class SetupView {
     return pattern;
   }
 
+  /**
+   * @brief Remove one pattern from the list.
+   * @param {string} pattern The pattern to remove.
+   */
   #removeExclusion(pattern) {
     this.exclusions = this.exclusions.filter((existing) => existing !== pattern);
     this.#renderExclusions();
     this.showMessage("Exclusion removed. Click Save to keep it.", "success");
   }
 
+  /**
+   * @brief Redraw the exclusion list, with remove buttons locked while a sync runs.
+   */
   #renderExclusions() {
     this.exclusionList.replaceChildren();
     this.exclusionEmpty.hidden = this.exclusions.length > 0;

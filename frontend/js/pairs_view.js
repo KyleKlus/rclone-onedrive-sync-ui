@@ -1,8 +1,9 @@
 /**
- * pairs_view.js
- * The overview of all folder pairs: one row per pair with its on/off (power) button,
- * name, folders, current state, an Edit button and a Delete button, plus the Add button.
+ * @file pairs_view.js
+ * @brief The overview of all folder pairs, one row per pair, plus the Add button.
  *
+ * Each row has the on/off (power) button, name, folders, current state, an Edit button
+ * and a Delete button.
  * It only displays what the backend reports (`status.pairs`) and calls the
  * callbacks it receives; it never talks to the backend itself.
  *
@@ -13,9 +14,11 @@
 import { ConfirmDialog } from "./confirm_dialog.js";
 
 /**
- * How each state looks: [short glyph, word]. The word is always shown, so the state
- * never depends on colour alone. "inactive" is not a backend state: it is what a
- * pair that is switched off shows, whatever its last run did.
+ * @brief How each state looks: [short glyph, word].
+ *
+ * The word is always shown, so the state never depends on colour alone. "inactive"
+ * is not a backend state: it is what a pair that is switched off shows, whatever
+ * its last run did.
  */
 const BADGES = {
   idle:      ["-",   "Ready"],
@@ -27,14 +30,21 @@ const BADGES = {
   inactive:  ["||",  "Inactive"],
 };
 
+/**
+ * @brief The list of folder-pair rows.
+ */
 export class PairsView {
   /**
+   * @brief Look up the elements and wire the Add button and the list's scroll fades.
    * @param {{
    *   onAdd: () => void,
    *   onEdit: (pairId: string) => void,
    *   onDelete: (pairId: string) => Promise<void>,
    *   onToggle: (pairId: string, enabled: boolean) => Promise<void>,
-   * }} callbacks
+   * }} callbacks Called when the user adds, edits, deletes or switches a pair.
+   *
+   * `this.rows` holds the row of every pair by pair id: {element, powerButton, name, paths, note, glyph, word, ...}.
+   * The list fades out at an edge while it can be scrolled further that way.
    */
   constructor({ onAdd, onEdit, onDelete, onToggle }) {
     this.list = document.getElementById("pair-list");
@@ -49,21 +59,21 @@ export class PairsView {
     this.onToggle = onToggle;
     this.confirmDialog = new ConfirmDialog();
 
-    /** The row of every pair, by pair id: {element, powerButton, name, paths, note, glyph, word, ...}. */
     this.rows = new Map();
     this.isLocked = false;
 
     this.addButton.addEventListener("click", () => onAdd());
 
-    // The list fades out at an edge while it can be scrolled further that way.
     this.list.addEventListener("scroll", () => this.#updateFades(), { passive: true });
     new ResizeObserver(() => this.#updateFades()).observe(this.list);
   }
 
   /**
-   * Show the pairs reported by the backend.
-   * @param {object[]} pairs   `status.pairs`
+   * @brief Show the pairs reported by the backend.
+   * @param {object[]} pairs `status.pairs`
    * @param {boolean} isLocked True while a sync runs: nothing can be changed then.
+   *
+   * The order of the page is kept equal to the order of the data, moving rows only if needed.
    */
   render(pairs, isLocked) {
     this.#setLocked(isLocked);
@@ -71,7 +81,6 @@ export class PairsView {
     pairs.forEach((pair, index) => {
       const row = this.rows.get(pair.id) ?? this.#createRow(pair.id);
       this.#updateRow(row, pair);
-      // Keep the order of the page equal to the order of the data, moving rows only if needed.
       if (this.list.children[index] !== row.element) {
         this.list.insertBefore(row.element, this.list.children[index] ?? null);
       }
@@ -90,17 +99,27 @@ export class PairsView {
     this.#updateFades();
   }
 
+  /**
+   * @brief Show a short message above the list.
+   * @param {string} text The message.
+   * @param {string} [kind] "error" or "success"; picks the colour.
+   */
   showMessage(text, kind = "error") {
     this.message.textContent = text;
     this.message.dataset.kind = kind;
   }
 
+  /**
+   * @brief Remove the message above the list.
+   */
   clearMessage() {
     this.showMessage("", "");
   }
 
-  // ------------------------------------------------------------------
-
+  /**
+   * @brief Lock or unlock everything that changes pairs.
+   * @param {boolean} isLocked True while a sync runs.
+   */
   #setLocked(isLocked) {
     this.isLocked = isLocked;
     this.addButton.disabled = isLocked;
@@ -108,7 +127,11 @@ export class PairsView {
     for (const row of this.rows.values()) row.deleteButton.disabled = isLocked;
   }
 
-  /** Mark which edges of the list have more content behind them (the CSS draws the fade). */
+  /**
+   * @brief Mark which edges of the list have more content behind them.
+   *
+   * The CSS draws the fade.
+   */
   #updateFades() {
     const { scrollTop, scrollHeight, clientHeight } = this.list;
     const hiddenAbove = scrollTop > 1;
@@ -117,6 +140,10 @@ export class PairsView {
     this.list.toggleAttribute("data-fade-bottom", hiddenBelow);
   }
 
+  /**
+   * @brief Show how many pairs exist and how many are active.
+   * @param {object[]} pairs `status.pairs`
+   */
   #renderCount(pairs) {
     const active = pairs.filter((pair) => pair.enabled).length;
     this.count.textContent = pairs.length === 0
@@ -124,7 +151,15 @@ export class PairsView {
       : `${pairs.length} ${pairs.length === 1 ? "pair" : "pairs"}, ${active} active`;
   }
 
-  /** Build the (still empty) elements of one row. The content is filled in by #updateRow. */
+  /**
+   * @brief Build the still empty elements of one row.
+   * @param {string} pairId Id of the pair.
+   * @return {object} The row; its content is filled in by #updateRow.
+   *
+   * `serverEnabled` is what the backend last said; the power button is put back to it
+   * after a toggle. While `isToggling` is true, polling must not reset the button under
+   * the user's finger. The icons are static markup: nothing from the backend goes into innerHTML.
+   */
   #createRow(pairId) {
     const element = document.createElement("li");
     element.className = "pair-row";
@@ -132,7 +167,6 @@ export class PairsView {
     const powerButton = document.createElement("button");
     powerButton.type = "button";
     powerButton.className = "btn btn--small btn--flat btn--icon btn--power";
-    // The power symbol. (Static markup, nothing from the backend goes in here.)
     powerButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17-1.42 1.42A6.92 6.92 0 0 1 19 12c0 3.87-3.13 7-7 7A6.995 6.995 0 0 1 7.58 6.58L6.17 5.17A8.932 8.932 0 0 0 3 12a9 9 0 0 0 18 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg>';
 
     const body = document.createElement("div");
@@ -157,22 +191,20 @@ export class PairsView {
     editButton.type = "button";
     editButton.className = "btn btn--small btn--flat btn--icon";
     editButton.title = "Edit";
-    // A pen. (Static markup, nothing from the backend goes in here.)
     editButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
 
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
     deleteButton.className = "btn btn--small btn--flat btn--icon btn--danger";
     deleteButton.title = "Delete";
-    // A trash can. (Static markup, nothing from the backend goes in here.)
     deleteButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
 
     element.append(body, badge, powerButton, editButton, deleteButton);
 
     const row = {
       element, powerButton, name, paths, note, glyph, word, editButton, deleteButton,
-      serverEnabled: true,   // what the backend last said; the button is put back to this after a toggle
-      isToggling: false,     // while true, polling must not reset the button under the user's finger
+      serverEnabled: true,
+      isToggling: false,
     };
     powerButton.addEventListener("click", () => this.#handleToggle(row, pairId));
     editButton.addEventListener("click", () => this.onEdit(pairId));
@@ -182,6 +214,11 @@ export class PairsView {
     return row;
   }
 
+  /**
+   * @brief Update one row in place from the data of its pair.
+   * @param {object} row The row made by #createRow.
+   * @param {object} pair The pair as reported by the backend.
+   */
   #updateRow(row, pair) {
     const displayState = pair.enabled ? pair.state : "inactive";
     row.element.dataset.state = displayState;
@@ -207,7 +244,11 @@ export class PairsView {
     row.pairName = pair.name;
   }
 
-  /** The one line of explanation under a pair's folders (empty = nothing to say). */
+  /**
+   * @brief Build the one line of explanation under a pair's folders.
+   * @param {object} pair The pair as reported by the backend.
+   * @return {string} The line, or "" if there is nothing to say.
+   */
   #noteFor(pair) {
     if (pair.message) return pair.message;
     if (pair.skips_pairs.length > 0) {
@@ -218,7 +259,11 @@ export class PairsView {
     return "";
   }
 
-  /** Ask first (a popup), then let the app delete the pair. */
+  /**
+   * @brief Ask first with a popup, then let the app delete the pair.
+   * @param {object} row The row of the pair.
+   * @param {string} pairId Id of the pair.
+   */
   async #handleDelete(row, pairId) {
     const confirmed = await this.confirmDialog.ask({
       title: "Delete folder pair?",
@@ -229,25 +274,41 @@ export class PairsView {
     if (confirmed) await this.onDelete(pairId);
   }
 
-  /** The power button is "pressed" (and green) while the pair is on. */
+  /**
+   * @brief Show the power button as "pressed" (and green) while the pair is on.
+   * @param {object} row The row of the pair.
+   * @param {boolean} isOn True if the pair is switched on.
+   */
   #showPower(row, isOn) {
     row.powerButton.setAttribute("aria-pressed", String(isOn));
     row.powerButton.title = isOn ? "On - click to switch off" : "Off - click to switch on";
   }
 
+  /**
+   * @brief Ask the app to switch a pair and show what the backend says afterwards.
+   * @param {object} row The row of the pair.
+   * @param {string} pairId Id of the pair.
+   *
+   * Whatever happened, the button shows the backend's state again, which undoes the click if it failed.
+   */
   async #handleToggle(row, pairId) {
     row.isToggling = true;
     try {
       await this.onToggle(pairId, !row.serverEnabled);
     } finally {
       row.isToggling = false;
-      // Whatever happened, show what the backend says now (undoes the click if it failed).
       this.#showPower(row, row.serverEnabled);
     }
   }
 }
 
-/** Only touch the DOM when the text really changed (the page is refreshed every second). */
+/**
+ * @brief Set the text of an element only when it really changed.
+ * @param {HTMLElement} element The element to update.
+ * @param {string} text The new text.
+ *
+ * The page is refreshed every second, so untouched elements keep their state.
+ */
 function setText(element, text) {
   if (element.textContent !== text) element.textContent = text;
 }

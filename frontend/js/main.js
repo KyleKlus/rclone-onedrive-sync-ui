@@ -1,7 +1,6 @@
 /**
- * main.js
- * Entry point. Creates the views and the API client, connects them and runs
- * the polling loop that keeps the page up to date.
+ * @file main.js
+ * @brief Entry point that creates the views and the API client, connects them and runs the polling loop.
  *
  * Data flow:   backend --(poll)--> App --> views
  *              user click --> view callback --> App --> backend
@@ -19,10 +18,16 @@ import { SetupPanel } from "./setup_panel.js";
 import { SetupView } from "./setup_view.js";
 import { StatusView } from "./status_view.js";
 
-/** How often the page asks the backend for news. */
+/** @brief How often the page asks the backend for news. */
 const POLL_INTERVAL_MS = 1000;
 
+/**
+ * @brief The application: wires the views to the backend and keeps the page up to date.
+ */
 class App {
+  /**
+   * @brief Create the API client and all views and connect their callbacks.
+   */
   constructor() {
     this.api = new ApiClient();
     this.statusView = new StatusView();
@@ -46,20 +51,22 @@ class App {
       onBack: () => this.#backToOverview(),
     });
 
-    /** Id of the newest log line already shown. */
     this.lastLogId = 0;
-    /** The newest status from the backend (null until the first answer). */
     this.status = null;
   }
 
+  /**
+   * @brief Prepare the setup form and start the polling loop.
+   */
   start() {
     this.#prepareEditor();
     this.#pollLoop();
   }
 
   /**
-   * Fill the (still hidden) setup form with the defaults once at startup. An
-   * empty form is shorter than a filled one, so without this the card would grow
+   * @brief Fill the still hidden setup form with the defaults once at startup.
+   *
+   * An empty form is shorter than a filled one, so without this the card would grow
    * the first time a pair is opened. Failing here is harmless: the form is then
    * simply filled when a pair is opened.
    */
@@ -68,20 +75,22 @@ class App {
       this.setupView.setRemotes(await this.#loadRemotes());
       this.setupView.open({ ...(await this.api.getDefaultSetup()), name: "" }, null);
     } catch {
-      /* nothing to do: the backend may simply not be reachable yet */
     }
   }
 
-  // ------------------------------------------------------------------
-  // Polling
-  // ------------------------------------------------------------------
-
-  /** Poll, wait, poll again. Waiting AFTER each round avoids overlapping requests. */
+  /**
+   * @brief Poll, wait, poll again.
+   *
+   * Waiting after each round avoids overlapping requests.
+   */
   async #pollLoop() {
     await this.#refresh();
     setTimeout(() => this.#pollLoop(), POLL_INTERVAL_MS);
   }
 
+  /**
+   * @brief Fetch status and log once and show them; show the offline state on failure.
+   */
   async #refresh() {
     try {
       const status = await this.api.getStatus();
@@ -103,7 +112,11 @@ class App {
     }
   }
 
-  /** Check the logins again. Never throws: the next poll shows the result. */
+  /**
+   * @brief Ask the backend to check the remote logins again.
+   *
+   * Never throws: the next poll shows the result.
+   */
   async #checkRemotes() {
     try {
       await this.api.checkRemotes();
@@ -112,10 +125,9 @@ class App {
     await this.#refresh();
   }
 
-  // ------------------------------------------------------------------
-  // Folder pairs: overview
-  // ------------------------------------------------------------------
-
+  /**
+   * @brief Open the setup form for a new folder pair.
+   */
   async #addPair() {
     this.pairsView.clearMessage();
     try {
@@ -129,6 +141,10 @@ class App {
     }
   }
 
+  /**
+   * @brief Open the setup form for an existing folder pair.
+   * @param {string} pairId Id of the pair.
+   */
   async #editPair(pairId) {
     this.pairsView.clearMessage();
     try {
@@ -141,7 +157,12 @@ class App {
     }
   }
 
-  /** Delete a pair (already confirmed in the overview). Never throws: a failure is shown instead. */
+  /**
+   * @brief Delete a pair from the overview.
+   * @param {string} pairId Id of the pair.
+   *
+   * Already confirmed in the overview. Never throws: a failure is shown instead.
+   */
   async #deletePairFromOverview(pairId) {
     this.pairsView.clearMessage();
     try {
@@ -153,7 +174,14 @@ class App {
     await this.#refresh();
   }
 
-  /** Switch a pair on or off. Never throws: a failure is shown in the overview instead. */
+  /**
+   * @brief Switch a pair on or off.
+   * @param {string} pairId Id of the pair.
+   * @param {boolean} enabled True to switch the pair on.
+   *
+   * Never throws: a failure is shown in the overview instead. The page is refreshed
+   * afterwards because the switch shows what the backend says, not what was clicked.
+   */
   async #togglePair(pairId, enabled) {
     this.pairsView.clearMessage();
     try {
@@ -161,19 +189,21 @@ class App {
     } catch (error) {
       this.pairsView.showMessage(this.#messageOf(error), "error");
     }
-    await this.#refresh();  // the switch shows what the backend says, not what was clicked
+    await this.#refresh();
   }
 
-  // ------------------------------------------------------------------
-  // Folder pairs: setup of one pair
-  // ------------------------------------------------------------------
-
+  /**
+   * @brief Create or update a pair from the setup form.
+   * @param {object} pair The setup read from the form.
+   *
+   * The form is filled with what the backend actually stored.
+   */
   async #savePair(pair) {
     try {
       const saved = this.setupView.pairId === null
         ? await this.api.createPair(pair)
         : await this.api.updatePair(this.setupView.pairId, pair);
-      this.setupView.markSaved(saved, saved.id);  // shows what the backend actually stored
+      this.setupView.markSaved(saved, saved.id);
       this.setupView.showMessage("Folder pair saved.", "success");
       await this.#refresh();
     } catch (error) {
@@ -181,6 +211,9 @@ class App {
     }
   }
 
+  /**
+   * @brief Put the defaults of a pair back into the setup form.
+   */
   async #resetSetup() {
     try {
       this.setupView.applyDefaults(await this.api.getDefaultSetup());
@@ -189,6 +222,9 @@ class App {
     }
   }
 
+  /**
+   * @brief Delete the pair open in the setup form and return to the overview.
+   */
   async #deletePair() {
     const pairId = this.setupView.pairId;
     if (pairId === null) return;
@@ -203,9 +239,11 @@ class App {
   }
 
   /**
-   * The remotes rclone knows, asked fresh every time the form opens (so a remote
-   * added with "rclone config" shows up without reloading the page). Never throws:
-   * if the backend cannot answer, the form just gets an empty list and the reason.
+   * @brief Fetch the remotes rclone knows.
+   * @return {Promise<{remotes: object[], error: string}>} The remotes, or an empty list with the reason.
+   *
+   * Asked fresh every time the form opens, so a remote added with "rclone config"
+   * shows up without reloading the page. Never throws.
    */
   async #loadRemotes() {
     try {
@@ -215,12 +253,18 @@ class App {
     }
   }
 
+  /**
+   * @brief Show the overview of folder pairs again.
+   */
   #backToOverview() {
     this.setupPanel.showOverview();
     this.pairsView.clearMessage();
   }
 
-  /** "Folder pair 1", "Folder pair 2", ... : the first number no pair uses yet. */
+  /**
+   * @brief Suggest a name for a new pair.
+   * @return {string} "Folder pair N" with the first number no pair uses yet.
+   */
   #suggestName() {
     const taken = new Set((this.status?.pairs ?? []).map((pair) => pair.name.toLowerCase()));
     let number = 1;
@@ -228,20 +272,23 @@ class App {
     return `Folder pair ${number}`;
   }
 
-  // ------------------------------------------------------------------
-  // Running
-  // ------------------------------------------------------------------
-
+  /**
+   * @brief Start a sync and show the new state at once.
+   * @param {{mode: string, resync: boolean, dryRun: boolean}} options What kind of sync to run.
+   */
   async #startSync(options) {
     this.controlsView.clearMessage();
     try {
       await this.api.startSync(options);
-      await this.#refresh();  // show the new state immediately, do not wait for the next poll
+      await this.#refresh();
     } catch (error) {
       this.controlsView.showMessage(this.#messageOf(error), "error");
     }
   }
 
+  /**
+   * @brief Stop the running sync.
+   */
   async #stopSync() {
     this.controlsView.clearMessage();
     try {
@@ -252,6 +299,11 @@ class App {
     }
   }
 
+  /**
+   * @brief Turn an error into text for the user.
+   * @param {Error} error The error that was caught.
+   * @return {string} The message to show.
+   */
   #messageOf(error) {
     return error instanceof ApiError ? error.message : `Unexpected error: ${error}`;
   }

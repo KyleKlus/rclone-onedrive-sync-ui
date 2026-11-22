@@ -1,5 +1,6 @@
-"""
-The "only this PC may talk to the backend" guard.
+"""!
+@file security.py
+@brief The "only this PC may talk to the backend" guard.
 
 Three independent checks protect the API:
 
@@ -20,32 +21,50 @@ _LOOPBACK_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
 
 
 class LocalhostGuard:
-    """Answers the question: "may this request be served?"."""
+    """!
+    @brief Answer the question: "may this request be served?".
+    """
 
     def __init__(self, port: int) -> None:
+        """!
+        @brief Create a guard for one server.
+        @param port The port the server listens on; the Origin header must name it.
+        """
         self._port = port
 
     def is_client_allowed(self, client_ip: str) -> bool:
-        """True only for loopback addresses such as 127.0.0.1 or ::1."""
+        """!
+        @brief Check the address of the TCP client.
+        @param client_ip The client's IP address as text.
+        @return True only for loopback addresses such as 127.0.0.1 or ::1.
+
+        "::ffff:127.0.0.1" is an IPv4 address wrapped in IPv6 and is unwrapped first.
+        """
         try:
             address = ipaddress.ip_address(client_ip)
         except ValueError:
             return False
-        # "::ffff:127.0.0.1" is an IPv4 address wrapped in IPv6.
         if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
             address = address.ipv4_mapped
         return address.is_loopback
 
     def is_host_header_allowed(self, host_header: Optional[str]) -> bool:
-        """The Host header must be localhost, 127.0.0.1 or [::1] (port ignored)."""
+        """!
+        @brief Check the Host header.
+        @param host_header The header value, or None if missing.
+        @return True if it is localhost, 127.0.0.1 or [::1] (port ignored).
+        """
         if not host_header:
             return False
         return _split_host(host_header) in _LOOPBACK_HOSTNAMES
 
     def is_origin_allowed(self, origin: Optional[str]) -> bool:
-        """
-        No Origin header (normal for direct navigation) is fine. If one is
-        present it must be exactly this server, e.g. http://127.0.0.1:8765.
+        """!
+        @brief Check the Origin header.
+        @param origin The header value, or None if missing.
+        @return True if there is no Origin or it is exactly this server, e.g. http://127.0.0.1:8765.
+
+        No Origin header (normal for direct navigation) is fine.
         """
         if not origin:
             return True
@@ -58,8 +77,12 @@ class LocalhostGuard:
 
 
 def _split_host(host_header: str) -> str:
-    """Extract the host name from 'host', 'host:port' or '[::1]:port'."""
+    """!
+    @brief Extract the host name from a Host header.
+    @param host_header One of 'host', 'host:port' or '[::1]:port'.
+    @return The lower-case host name without port and brackets.
+    """
     host = host_header.strip().lower()
-    if host.startswith("["):                      # IPv6 literal
+    if host.startswith("["):
         return host[1:].split("]", 1)[0]
     return host.rsplit(":", 1)[0] if ":" in host else host

@@ -1,5 +1,6 @@
-"""
-The native window around the web UI.
+"""!
+@file window.py
+@brief The native window around the web UI.
 
 pywebview shows the page in a GTK / WebKit window, so the app looks like any
 other desktop program: its own window, taskbar entry and icon.
@@ -30,20 +31,35 @@ Without it you can still use the browser mode:  python run.py --open"""
 
 
 class DesktopUnavailable(Exception):
-    """Raised when the native window cannot be created on this system."""
+    """!
+    @brief Raised when the native window cannot be created on this system.
+    """
 
 
 class DesktopWindow:
-    """Opens the UI in a native window and blocks until the window is closed."""
+    """!
+    @brief Opens the UI in a native window and blocks until the window is closed.
+    """
 
     def __init__(self, url: str, icon_path: Path, is_sync_running: Callable[[], bool]) -> None:
+        """!
+        @brief Remember what to show; no window is created yet.
+        @param url The address of the web UI.
+        @param icon_path The PNG used as the window icon.
+        @param is_sync_running Returns True while a sync runs, so closing can be confirmed.
+        """
         self._url = url
         self._icon_path = icon_path
         self._is_sync_running = is_sync_running
         self._window = None
 
     def run(self) -> None:
-        """Show the window. Must be called from the main thread (GUI rule)."""
+        """!
+        @brief Show the window and block until it is closed.
+        @throws DesktopUnavailable If pywebview is not installed.
+
+        Must be called from the main thread (GUI rule).
+        """
         webview = self._import_webview()
         self._announce_identity()
 
@@ -55,12 +71,15 @@ class DesktopWindow:
             min_size=WINDOW_MIN_SIZE,
         )
         self._window.events.closing += self._on_closing
-        webview.start(icon=str(self._icon_path))  # returns when the window is closed
-
-    # ------------------------------------------------------------------
+        webview.start(icon=str(self._icon_path))
 
     @staticmethod
     def _import_webview():
+        """!
+        @brief Import pywebview lazily.
+        @return The ``webview`` module.
+        @throws DesktopUnavailable With install help if pywebview is missing.
+        """
         try:
             import webview
         except ImportError as error:
@@ -69,20 +88,29 @@ class DesktopWindow:
 
     @staticmethod
     def _announce_identity() -> None:
-        """
-        Tell GTK the application id BEFORE any window exists. On Wayland it
-        becomes the window's app_id, on X11 its WM_CLASS; the dock uses it to
-        find the matching .desktop file and with it the icon.
+        """!
+        @brief Tell GTK the application id.
+
+        Must happen BEFORE any window exists. On Wayland it becomes the window's
+        app_id, on X11 its WM_CLASS; the dock uses it to find the matching
+        .desktop file and with it the icon. Without GTK there is nothing to
+        announce (pywebview will report its own problem).
         """
         try:
             from gi.repository import GLib
         except ImportError:
-            return  # no GTK: nothing to announce (pywebview will report its own problem)
+            return
         GLib.set_prgname(APP_ID)
         GLib.set_application_name(APP_NAME)
 
     def _on_closing(self):
-        """Ask before closing while a sync runs. Returning False cancels the close."""
+        """!
+        @brief Ask before closing while a sync runs.
+        @return False to cancel the close, True to allow it.
+
+        If the dialog itself fails the close is allowed, so the user is never
+        trapped in the window.
+        """
         if not self._is_sync_running():
             return True
         try:
@@ -91,4 +119,4 @@ class DesktopWindow:
                 "A sync is still running. Closing the window will stop it.\n\nClose anyway?",
             )
         except Exception:
-            return True  # if the dialog itself fails, never trap the user in the window
+            return True

@@ -1,20 +1,25 @@
 /**
- * two_step_button.js
- * Protects a button against accidental clicks: the first click only "arms" it
- * (the label changes, e.g. to "Discard changes?"), and only a second click
- * within a few seconds counts as confirmed. Used for small questions; for bigger
- * ones (deleting) there is a popup, see confirm_dialog.js.
+ * @file two_step_button.js
+ * @brief Protects a button against accidental clicks with a second confirming click.
+ *
+ * The first click only "arms" the button (the label changes, e.g. to "Discard changes?"),
+ * and only a second click within a few seconds counts as confirmed. Used for small
+ * questions; for bigger ones (deleting) there is a popup, see confirm_dialog.js.
  *
  * The button is also marked with data-armed="true" while armed, so the CSS can
  * make it stand out.
  */
 
+/**
+ * @brief A button that needs two clicks in a row to confirm.
+ */
 export class TwoStepButton {
   /**
-   * @param {HTMLElement} button      The button itself.
-   * @param {HTMLElement} label       The element inside the button that holds its text.
-   * @param {string} armedText        The text shown while the button is armed.
-   * @param {number} [timeoutMs]      How long the button stays armed.
+   * @brief Remember the button and its texts.
+   * @param {HTMLElement} button The button itself.
+   * @param {HTMLElement} label The element inside the button that holds its text.
+   * @param {string} armedText The text shown while the button is armed.
+   * @param {number} [timeoutMs] How long the button stays armed.
    */
   constructor(button, label, armedText, timeoutMs = 4000) {
     this.button = button;
@@ -26,9 +31,11 @@ export class TwoStepButton {
   }
 
   /**
+   * @brief Register a click and tell whether it confirms the action.
+   * @return {boolean} true if this click confirms the action,
+   *                   false if it only armed the button.
+   *
    * Call this on every click.
-   * @returns {boolean} true if this click confirms the action,
-   *                    false if it only armed the button.
    */
   confirmed() {
     if (this.timer !== null) {
@@ -41,7 +48,9 @@ export class TwoStepButton {
     return false;
   }
 
-  /** Back to the normal, unarmed button. */
+  /**
+   * @brief Go back to the normal, unarmed button.
+   */
   reset() {
     clearTimeout(this.timer);
     this.timer = null;

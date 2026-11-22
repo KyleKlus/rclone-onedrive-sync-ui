@@ -1,5 +1,6 @@
-"""
-The API: maps URLs like ``GET /api/status`` to actions.
+"""!
+@file api.py
+@brief The API: maps URLs like ``GET /api/status`` to actions.
 
 This module knows nothing about HTTP sockets or headers. It receives a
 method, a path, query parameters and an already-parsed JSON body, and
@@ -38,23 +39,34 @@ from ..sync_manager import SyncManager
 
 @dataclass(frozen=True)
 class ApiRequest:
-    """Everything a handler may need to know about one request."""
+    """!
+    @brief Everything a handler may need to know about one request.
 
-    path_params: dict   # the <id> parts of the URL, e.g. {"pair_id": "a1b2c3d4"}
+    Attributes:
+    path_params - The <id> parts of the URL, e.g. {"pair_id": "a1b2c3d4"}.
+    query - Parsed query parameters.
+    body - Parsed JSON body (empty dict if none).
+    """
+
+    path_params: dict
     query: dict
     body: dict
 
 
 @dataclass(frozen=True)
 class ApiResponse:
-    """A status code plus a JSON-serialisable payload."""
+    """!
+    @brief A status code plus a JSON-serialisable payload.
+    """
 
     status: int
     payload: dict
 
 
 class ApiRouter:
-    """Dispatches API requests to the right handler method."""
+    """!
+    @brief Dispatches API requests to the right handler method.
+    """
 
     def __init__(
         self,
@@ -64,13 +76,23 @@ class ApiRouter:
         remote_catalog: RemoteCatalog,
         remote_monitor: RemoteHealthMonitor,
     ) -> None:
+        """!
+        @brief Create the router and its route table.
+        @param pair_store Where the folder pairs are kept.
+        @param sync_manager Starts, stops and reports on runs.
+        @param log_buffer The live log.
+        @param remote_catalog Lists the remotes rclone knows.
+        @param remote_monitor Checks whether remote logins are still valid.
+
+        The route table holds (HTTP method, path pattern, handler); "{name}" in
+        a pattern matches one URL part.
+        """
         self._pair_store = pair_store
         self._sync_manager = sync_manager
         self._log = log_buffer
         self._remote_catalog = remote_catalog
         self._remote_monitor = remote_monitor
 
-        # (HTTP method, path pattern, handler). "{name}" in a pattern matches one URL part.
         self._routes: list = [
             ("GET", "/api/status", self._get_status),
             ("GET", "/api/setup/defaults", self._get_default_setup),
@@ -87,7 +109,14 @@ class ApiRouter:
         ]
 
     def handle(self, method: str, path: str, query: dict, body: Optional[dict]) -> ApiResponse:
-        """Run the matching handler and turn our exceptions into HTTP statuses."""
+        """!
+        @brief Run the matching handler and turn our exceptions into HTTP statuses.
+        @param method The HTTP method.
+        @param path The URL path.
+        @param query Parsed query parameters.
+        @param body Parsed JSON body, or None.
+        @return 404 for an unknown path, 405 for a known path with the wrong method, otherwise the handler's response.
+        """
         path_exists = False
         for route_method, pattern, handler in self._routes:
             params = _match_path(pattern, path)
@@ -103,6 +132,12 @@ class ApiRouter:
 
     @staticmethod
     def _call(handler: Callable, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Call a handler and map the app's exceptions to HTTP statuses.
+        @param handler The handler to call.
+        @param request The request to give it.
+        @return The handler's response, or 400 (SetupError, SyncConfigError), 404 (PairNotFoundError) or 409 (SyncBusyError) with the error text.
+        """
         try:
             return handler(request)
         except (SetupError, SyncConfigError) as error:
@@ -112,21 +147,32 @@ class ApiRouter:
         except SyncBusyError as error:
             return ApiResponse(409, {"error": str(error)})
 
-    # ------------------------------------------------------------------
-    # Handlers: state
-    # ------------------------------------------------------------------
-
     def _get_status(self, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Handle GET /api/status.
+        @param request The request.
+        @return The system state including the health of the remotes.
+        """
         status = self._sync_manager.status()
         status["remote_health"] = self._remote_monitor.snapshot()
         return ApiResponse(200, status)
 
     def _get_default_setup(self, request: ApiRequest) -> ApiResponse:
-        """The defaults live in config.py; the UI asks for them instead of copying them."""
+        """!
+        @brief Handle GET /api/setup/defaults.
+        @param request The request.
+        @return The default setup of a new pair.
+
+        The defaults live in config.py; the UI asks for them instead of copying them.
+        """
         return ApiResponse(200, PairSetup().to_dict())
 
     def _get_remotes(self, request: ApiRequest) -> ApiResponse:
-        """
+        """!
+        @brief Handle GET /api/remotes.
+        @param request The request.
+        @return The remotes rclone has configured.
+
         Asked every time the setup form opens, so a remote that was just added with
         ``rclone config`` shows up without restarting the app. If rclone cannot be asked,
         the answer is still 200: an empty list plus an ``error`` text the UI can show.
@@ -134,47 +180,90 @@ class ApiRouter:
         return ApiResponse(200, self._remote_catalog.list_remotes().to_dict())
 
     def _post_remotes_check(self, request: ApiRequest) -> ApiResponse:
-        """Queue a check of the remotes' logins; the answer is the state right now."""
+        """!
+        @brief Handle POST /api/remotes/check: queue a check of the remotes' logins.
+        @param request The request.
+        @return Status 202 with the health state right now.
+        """
         self._remote_monitor.check_now()
         return ApiResponse(202, self._remote_monitor.snapshot())
 
-    # ------------------------------------------------------------------
-    # Handlers: folder pairs
-    # ------------------------------------------------------------------
-
     def _get_pair(self, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Handle GET /api/pairs/<id>.
+        @param request The request.
+        @return The pair with its full setup.
+        @throws PairNotFoundError If no pair has that id.
+        """
         return ApiResponse(200, self._pair_store.get(request.path_params["pair_id"]).to_dict())
 
     def _post_pair(self, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Handle POST /api/pairs.
+        @param request The request; the body holds the new pair.
+        @return Status 201 with the created pair.
+        @throws SyncBusyError While a sync runs.
+        @throws SetupError If the data is invalid.
+        """
         self._refuse_while_syncing()
         return ApiResponse(201, self._pair_store.create(request.body).to_dict())
 
     def _put_pair(self, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Handle PUT /api/pairs/<id>.
+        @param request The request; the body holds name and setup.
+        @return The saved pair.
+        @throws SyncBusyError While a sync runs.
+        @throws SetupError If the data is invalid.
+        @throws PairNotFoundError If no pair has that id.
+        """
         self._refuse_while_syncing()
         saved = self._pair_store.update(request.path_params["pair_id"], request.body)
         return ApiResponse(200, saved.to_dict())
 
     def _put_pair_enabled(self, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Handle PUT /api/pairs/<id>/enabled.
+        @param request The request; the body is {"enabled": true|false}.
+        @return The saved pair.
+        @throws SyncBusyError While a sync runs.
+        @throws PairNotFoundError If no pair has that id.
+        """
         self._refuse_while_syncing()
         saved = self._pair_store.set_enabled(request.path_params["pair_id"], request.body.get("enabled"))
         return ApiResponse(200, saved.to_dict())
 
     def _delete_pair(self, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Handle DELETE /api/pairs/<id>.
+        @param request The request.
+        @return The id of the deleted pair.
+        @throws SyncBusyError While a sync runs.
+        @throws PairNotFoundError If no pair has that id.
+        """
         self._refuse_while_syncing()
         pair_id = request.path_params["pair_id"]
         self._pair_store.delete(pair_id)
         return ApiResponse(200, {"deleted": pair_id})
 
     def _refuse_while_syncing(self) -> None:
-        """Folder pairs are locked during a run, so a run always works on what it started with."""
+        """!
+        @brief Refuse changes to folder pairs while a run is going.
+        @throws SyncBusyError If a sync is running.
+
+        Folder pairs are locked during a run, so a run always works on what it started with.
+        """
         if self._sync_manager.is_busy():
             raise SyncBusyError("Folder pairs are locked while a sync is running.")
 
-    # ------------------------------------------------------------------
-    # Handlers: running
-    # ------------------------------------------------------------------
-
     def _post_sync(self, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Handle POST /api/sync.
+        @param request The request; the body holds mode, resync and dry_run.
+        @return Status 202 with the system state.
+        @throws SyncConfigError If the mode is unknown, the flags are not booleans or the run cannot start.
+        @throws SyncBusyError If a run is already going.
+        """
         body = request.body
         try:
             mode = SyncMode(body.get("mode"))
@@ -190,10 +279,21 @@ class ApiRouter:
         return ApiResponse(202, self._sync_manager.status())
 
     def _post_stop(self, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Handle POST /api/stop.
+        @param request The request.
+        @return The system state.
+        """
         self._sync_manager.stop()
         return ApiResponse(200, self._sync_manager.status())
 
     def _get_log(self, request: ApiRequest) -> ApiResponse:
+        """!
+        @brief Handle GET /api/log.
+        @param request The request; query ``after`` is the last id the client has seen.
+        @return The newer log entries and the last id.
+        @throws SyncConfigError If ``after`` is not a whole number.
+        """
         try:
             after = int(request.query.get("after", ["0"])[0])
         except ValueError:
@@ -208,10 +308,11 @@ class ApiRouter:
 
 
 def _match_path(pattern: str, path: str) -> Optional[dict]:
-    """
-    Compare a URL with a route pattern, part by part.
-    ``/api/pairs/{pair_id}`` matches ``/api/pairs/a1b2`` and returns ``{"pair_id": "a1b2"}``.
-    Returns None if the URL does not match.
+    """!
+    @brief Compare a URL with a route pattern, part by part.
+    @param pattern The route pattern, e.g. ``/api/pairs/{pair_id}``.
+    @param path The URL path.
+    @return The URL parts by name, e.g. ``{"pair_id": "a1b2"}`` for ``/api/pairs/a1b2``; None if the URL does not match.
     """
     pattern_parts = pattern.split("/")
     path_parts = path.split("/")

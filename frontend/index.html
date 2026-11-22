@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rclone Sync</title>
 
-  <!-- Icons: the SVG is used by modern browsers, the .ico is the fallback. -->
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="icon" href="favicon.ico" sizes="48x48">
   <link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
@@ -17,7 +16,6 @@
 </head>
 <body>
 
-  <!-- ============================ HEADER ============================ -->
   <header class="app-header">
     <h1 class="app-title">Rclone Sync</h1>
     <div class="header-badges">
@@ -44,12 +42,9 @@
 
   <main class="layout">
 
-    <!-- ======================= 1 / SYSTEM STATE ======================= -->
-    <!-- The big banner. Its data-state attribute drives colour and animation. -->
     <section class="panel status-panel" id="status-panel" data-state="offline" aria-live="polite">
       <h2 class="panel__label">System state</h2>
 
-      <!-- Wide screens: the state on the left, activity bar and facts right next to it. -->
       <div class="status-panel__body">
         <div class="status-panel__main">
           <div class="status-panel__headline">
@@ -83,20 +78,14 @@
       </p>
     </section>
 
-    <!-- ========================= 2 / FOLDER PAIRS ========================= -->
-    <!-- One card, two views in the same spot. data-view says which one is visible:
-         "overview" = the list of all folder pairs, "editor" = the setup of one pair.
-         The card keeps its size when switching (see components.css, section 7b). -->
     <section class="panel setup-panel" id="setup-panel" data-view="overview">
 
-      <!-- ---- View 1: overview of all folder pairs ---- -->
       <div class="setup-panel__view pairs-view" id="pairs-view">
         <div class="pairs-view__header">
           <h2 class="panel__label">Folder pairs</h2>
           <p class="pairs-view__count" id="pairs-count"></p>
         </div>
 
-        <!-- The list scrolls inside this frame when there are more pairs than fit. -->
         <div class="pair-list-frame">
           <ul class="pair-list" id="pair-list"></ul>
           <p class="pair-empty" id="pair-empty" hidden>
@@ -116,7 +105,6 @@
         <p class="field__hint" id="pairs-lock-note" hidden>Folder pairs are locked while a sync is running.</p>
       </div>
 
-      <!-- ---- View 2: setup of ONE folder pair (new or existing) ---- -->
       <form id="setup-form" class="setup-panel__view setup-form" novalidate>
         <h2 class="visually-hidden">Folder pair setup</h2>
 
@@ -142,7 +130,6 @@
 
             <div class="field">
               <label class="field__label" for="setup-remote-folder">Remote</label>
-              <!-- Dropdown of the remotes rclone knows at the start, optional folder after it (see remote_field.js). -->
               <div class="field__input remote-field" id="remote-field">
                 <div class="remote-field__picker">
                   <button type="button" class="remote-field__button" aria-haspopup="listbox"
@@ -210,7 +197,6 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.5 8c-2.65 0-5.05 1-6.9 2.6L2 7v9h9l-3.62-3.62A7.96 7.96 0 0 1 12.5 10c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.07 10.6 17.19 8 12.5 8z"/></svg>
               Reset to defaults
             </button>
-            <!-- Only for pairs that already exist. Asks for confirmation in a popup (see confirm_dialog.js). -->
             <button type="button" class="btn btn--danger" id="delete-button" hidden>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
               Delete pair
@@ -225,7 +211,6 @@
       </form>
     </section>
 
-    <!-- ============================ 3 / RUN ============================ -->
     <section class="panel controls-panel">
       <h2 class="panel__label">Run</h2>
 
@@ -297,7 +282,6 @@
       <p class="form-message" id="control-message" role="status"></p>
     </section>
 
-    <!-- ============================ 4 / LOG ============================ -->
     <section class="panel log-panel">
       <div class="log-panel__header">
         <h2 class="panel__label">Live log</h2>
@@ -318,9 +302,6 @@
 
   </main>
 
-  <!-- ES modules: main.js imports all the other scripts. -->
-  <!-- Popup that asks "are you sure?" (opened by confirm_dialog.js). The browser puts it on top
-       of everything, dims the page behind it and closes it with Escape. -->
   <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
     <form method="dialog" class="confirm-dialog__form">
       <h2 class="panel__label" id="confirm-title"></h2>

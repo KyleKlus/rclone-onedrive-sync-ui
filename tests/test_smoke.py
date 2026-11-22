@@ -1,5 +1,6 @@
-"""
-End-to-end tests: real backend, real HTTP, fake rclone.
+"""!
+@file test_smoke.py
+@brief End-to-end tests: real backend, real HTTP, fake rclone.
 
 Run from the project folder with:
     python -m unittest discover -s tests -v
@@ -20,13 +21,17 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.app import Application          # noqa: E402
-from backend.server.security import LocalhostGuard  # noqa: E402
+from backend.app import Application
+from backend.server.security import LocalhostGuard
 
 FAKE_RCLONE = Path(__file__).resolve().parent / "fake_rclone.py"
 
 
 class LogBufferTests(unittest.TestCase):
+    """!
+    @brief Tests for the in-memory log buffer.
+    """
+
     def test_ansi_colour_codes_are_removed(self):
         from backend.command.log_buffer import LogBuffer
         log = LogBuffer(10)
@@ -44,9 +49,14 @@ class LogBufferTests(unittest.TestCase):
 
 
 class GuardTests(unittest.TestCase):
-    """The localhost guard, tested without any network."""
+    """!
+    @brief Tests for the localhost guard, without any network.
+    """
 
     def setUp(self):
+        """!
+        @brief Create a guard for port 8765.
+        """
         self.guard = LocalhostGuard(port=8765)
 
     def test_client_addresses(self):
@@ -70,9 +80,17 @@ class GuardTests(unittest.TestCase):
 
 
 class ServerTestCase(unittest.TestCase):
-    """Starts the whole app on a free port for each test."""
+    """!
+    @brief Starts the whole app on a free port for each test.
+
+    The helper methods are grouped: setUp/tearDown, then request and folder helpers,
+    then waiting helpers and log readers.
+    """
 
     def setUp(self):
+        """!
+        @brief Start the app with the fake rclone in a temporary data folder.
+        """
         os.chmod(FAKE_RCLONE, os.stat(FAKE_RCLONE).st_mode | stat.S_IXUSR)
         self.workdir = Path(tempfile.mkdtemp())
         self.local_dir = self.make_folder("local")
@@ -86,12 +104,21 @@ class ServerTestCase(unittest.TestCase):
         threading.Thread(target=self.app.run, daemon=True).start()
 
     def tearDown(self):
+        """!
+        @brief Stop the app and delete the temporary folder.
+        """
         self.app.shutdown()
         shutil.rmtree(self.workdir, ignore_errors=True)
 
-    # --- helpers ---
-
     def request(self, method, path, body=None, headers=None):
+        """!
+        @brief Send one HTTP request to the running app.
+        @param method The HTTP method.
+        @param path The request path.
+        @param body Optional data, sent as JSON.
+        @param headers Optional extra headers.
+        @return A tuple (status code, parsed JSON, or the raw text if it is not JSON).
+        """
         connection = http.client.HTTPConnection("127.0.0.1", self.app.port, timeout=5)
         payload = json.dumps(body) if body is not None else None
         request_headers = {"Content-Type": "application/json"} if payload else {}
@@ -106,11 +133,22 @@ class ServerTestCase(unittest.TestCase):
             return response.status, raw
 
     def make_folder(self, name):
+        """!
+        @brief Create a folder inside the temporary work folder.
+        @param name The folder name.
+        @return The path of the new folder.
+        """
         folder = self.workdir / name
         folder.mkdir()
         return folder
 
     def pair_data(self, name="Docs", **overrides):
+        """!
+        @brief Build the dictionary the UI sends for a new pair.
+        @param name The pair name.
+        @param overrides Fields that replace the defaults.
+        @return The pair data.
+        """
         data = {
             "name": name,
             "local_path": str(self.local_dir),
@@ -122,13 +160,22 @@ class ServerTestCase(unittest.TestCase):
         return data
 
     def create_pair(self, name="Docs", **overrides):
-        """Create a folder pair and return it as the API reports it."""
+        """!
+        @brief Create a folder pair.
+        @param name The pair name.
+        @param overrides Fields that replace the defaults.
+        @return The pair as the API reports it.
+        """
         status, pair = self.request("POST", "/api/pairs", self.pair_data(name, **overrides))
         self.assertEqual(status, 201, pair)
         return pair
 
     def create_separate_pairs(self, *names):
-        """Pairs with their own local and remote folder each, so they may sync in parallel."""
+        """!
+        @brief Create pairs with their own local and remote folder each, so they may sync in parallel.
+        @param names The names of the pairs.
+        @return The created pairs.
+        """
         return [
             self.create_pair(
                 name,
@@ -139,10 +186,20 @@ class ServerTestCase(unittest.TestCase):
         ]
 
     def pairs_by_name(self):
+        """!
+        @brief Read the pairs from the status.
+        @return A dict mapping each pair name to its status.
+        """
         _, status = self.request("GET", "/api/status")
         return {pair["name"]: pair for pair in status["pairs"]}
 
     def wait_for_state(self, wanted, timeout=10):
+        """!
+        @brief Poll the status until the overall state is one of the wanted ones.
+        @param wanted The accepted states.
+        @param timeout Seconds to wait before the test fails.
+        @return The status that matched.
+        """
         deadline = time.time() + timeout
         status = {}
         while time.time() < deadline:
@@ -153,7 +210,12 @@ class ServerTestCase(unittest.TestCase):
         self.fail(f"Timed out waiting for {wanted}; last status: {status}")
 
     def wait_for_pairs(self, condition, timeout=10):
-        """Wait until ``condition(pairs_by_name)`` is true; return the pairs."""
+        """!
+        @brief Poll until ``condition(pairs_by_name)`` is true.
+        @param condition Called with the dict of pairs by name.
+        @param timeout Seconds to wait before the test fails.
+        @return The pairs for which the condition held.
+        """
         deadline = time.time() + timeout
         pairs = {}
         while time.time() < deadline:
@@ -164,14 +226,26 @@ class ServerTestCase(unittest.TestCase):
         self.fail(f"Timed out waiting for a condition; last pairs: {pairs}")
 
     def log_entries(self):
+        """!
+        @brief Read all log entries from the API.
+        @return The list of entries.
+        """
         _, log = self.request("GET", "/api/log?after=0")
         return log["entries"]
 
     def log_text(self):
+        """!
+        @brief Read the whole log as text.
+        @return The entry texts joined by newlines.
+        """
         return "\n".join(entry["text"] for entry in self.log_entries())
 
 
 class SecurityTests(ServerTestCase):
+    """!
+    @brief Tests that only this computer is served.
+    """
+
     def test_foreign_host_header_is_rejected(self):
         status, _ = self.request("GET", "/api/status", headers={"Host": "evil.com"})
         self.assertEqual(status, 403)
@@ -205,9 +279,20 @@ class SecurityTests(ServerTestCase):
 
 
 class PairApiTests(ServerTestCase):
+    """!
+    @brief Tests for the folder pair API.
+
+    The tests cover create/read/update/delete, validation (nothing is created when it
+    fails; the error says WHICH pair is incomplete or clashes), keeping a pair's own
+    name when it is saved again, defaults (no cloud is preselected, the user picks
+    one; asking for defaults must not change anything that is saved), creation order
+    of the list, and the rules for nested or identical folders. Switching the inner
+    pair off does not change that: its folder is still not the outer pair's job.
+    """
+
     def test_create_read_update_delete(self):
         pair = self.create_pair(exclusions=["  node_modules/ ", "*.iso", "*.iso", ""])
-        self.assertEqual(pair["exclusions"], ["node_modules/", "*.iso"])   # cleaned up
+        self.assertEqual(pair["exclusions"], ["node_modules/", "*.iso"])
         self.assertTrue(pair["enabled"])
 
         _, loaded = self.request("GET", f"/api/pairs/{pair['id']}")
@@ -228,7 +313,7 @@ class PairApiTests(ServerTestCase):
             status, body = self.request("POST", "/api/pairs", self.pair_data(**bad))
             self.assertEqual(status, 400, bad)
             self.assertIn("error", body)
-        self.assertEqual(self.pairs_by_name(), {})   # nothing was created
+        self.assertEqual(self.pairs_by_name(), {})
 
     def test_a_missing_remote_asks_the_user_to_choose_one(self):
         status, body = self.request("POST", "/api/pairs", self.pair_data(remote=""))
@@ -240,7 +325,6 @@ class PairApiTests(ServerTestCase):
         status, body = self.request("POST", "/api/pairs", self.pair_data("docs"))
         self.assertEqual(status, 400)
         self.assertIn("already called", body["error"])
-        # A pair may of course keep its own name when it is saved again.
         status, _ = self.request("PUT", f"/api/pairs/{first['id']}", self.pair_data("Docs", max_size="2G"))
         self.assertEqual(status, 200)
 
@@ -274,10 +358,9 @@ class PairApiTests(ServerTestCase):
     def test_defaults_endpoint(self):
         status, defaults = self.request("GET", "/api/setup/defaults")
         self.assertEqual(status, 200)
-        self.assertEqual(defaults["remote"], "")       # no cloud is preselected: the user picks one
+        self.assertEqual(defaults["remote"], "")
         self.assertEqual(defaults["max_size"], "50M")
         self.assertIn("*.tmp", defaults["exclusions"])
-        # Asking for defaults must not change anything that is saved.
         pair = self.create_pair(max_size="2G")
         self.request("GET", "/api/setup/defaults")
         _, current = self.request("GET", f"/api/pairs/{pair['id']}")
@@ -291,7 +374,7 @@ class PairApiTests(ServerTestCase):
     def test_status_lists_every_pair_with_its_own_state(self):
         self.create_separate_pairs("A", "B")
         _, status = self.request("GET", "/api/status")
-        self.assertEqual([pair["name"] for pair in status["pairs"]], ["A", "B"])   # creation order
+        self.assertEqual([pair["name"] for pair in status["pairs"]], ["A", "B"])
         for pair in status["pairs"]:
             self.assertEqual(pair["state"], "idle")
             self.assertTrue(pair["enabled"])
@@ -308,16 +391,15 @@ class PairApiTests(ServerTestCase):
         self.assertEqual(pairs["Outer"]["skips_pairs"], ["Inner"])
         self.assertEqual(pairs["Inner"]["skips_pairs"], [])
 
-        # Switching the inner pair off does not change that: its folder is still not the outer pair's job.
         self.request("PUT", f"/api/pairs/{inner['id']}/enabled", {"enabled": False})
         self.assertEqual(self.pairs_by_name()["Outer"]["skips_pairs"], ["Inner"])
 
     def test_pairs_with_clashing_folders_are_refused(self):
         self.create_pair("Docs", local_path=str(self.local_dir), remote="onedrive:Docs")
         for clash in (
-            {"local_path": str(self.local_dir), "remote": "onedrive:Docs"},                # identical
-            {"local_path": str(self.make_folder("other")), "remote": "onedrive:Docs"},     # same remote folder
-            {"local_path": str(self.local_dir), "remote": "onedrive:Other"},               # same local folder
+            {"local_path": str(self.local_dir), "remote": "onedrive:Docs"},
+            {"local_path": str(self.make_folder("other")), "remote": "onedrive:Docs"},
+            {"local_path": str(self.local_dir), "remote": "onedrive:Other"},
         ):
             status, body = self.request("POST", "/api/pairs", self.pair_data("Clash", **clash))
             self.assertEqual(status, 400, clash)
@@ -326,10 +408,19 @@ class PairApiTests(ServerTestCase):
 
 
 class RemoteListTests(ServerTestCase):
-    """The remotes rclone knows, which the setup form offers in its dropdown."""
+    """!
+    @brief Tests for the remotes rclone knows, which the setup form offers in its dropdown.
+
+    When rclone answers but has nothing configured, the list is empty and the form
+    must keep working.
+    """
 
     def use_fake_remotes(self, remotes="", fail=False):
-        """Set what the fake rclone answers to ``listremotes`` (restored after the test)."""
+        """!
+        @brief Set what the fake rclone answers to ``listremotes`` (restored after the test).
+        @param remotes The "name:type,name:type" list, or empty for none.
+        @param fail True to make the listing fail.
+        """
         for name, value in (("FAKE_RCLONE_REMOTES", remotes or None),
                             ("FAKE_RCLONE_REMOTES_FAIL", "1" if fail else None)):
             self.addCleanup(os.environ.pop, name, None)
@@ -351,14 +442,14 @@ class RemoteListTests(ServerTestCase):
         self.assertEqual([remote["name"] for remote in body["remotes"]], ["work", "home", "backup"])
 
     def test_no_remotes_is_an_empty_list_not_an_error(self):
-        self.use_fake_remotes(remotes=",")   # rclone answers, but has nothing configured
+        self.use_fake_remotes(remotes=",")
         status, body = self.request("GET", "/api/remotes")
         self.assertEqual((status, body), (200, {"remotes": [], "error": ""}))
 
     def test_a_failing_rclone_is_reported_in_the_answer(self):
         self.use_fake_remotes(fail=True)
         status, body = self.request("GET", "/api/remotes")
-        self.assertEqual(status, 200)                       # the form must keep working
+        self.assertEqual(status, 200)
         self.assertEqual(body["remotes"], [])
         self.assertIn("permission denied", body["error"])
 
@@ -383,22 +474,37 @@ class RemoteListTests(ServerTestCase):
 
 
 class ExpiredLoginTests(ServerTestCase):
-    """Remotes whose login has expired are noticed and the user is told how to reconnect."""
+    """!
+    @brief Tests that remotes whose login has expired are noticed and the user is told how to reconnect.
+    """
 
     def expire(self, *remotes):
-        """Make the fake rclone fail like an expired login for these remotes (restored after the test)."""
+        """!
+        @brief Make the fake rclone fail like an expired login for these remotes (restored after the test).
+        @param remotes The names of the remotes.
+        """
         self.addCleanup(os.environ.pop, "FAKE_RCLONE_EXPIRED", None)
         os.environ["FAKE_RCLONE_EXPIRED"] = ",".join(remotes)
 
     def renew(self):
+        """!
+        @brief Make the logins work again.
+        """
         os.environ.pop("FAKE_RCLONE_EXPIRED", None)
 
     def health(self):
+        """!
+        @brief Read the remote health from the status.
+        @return The ``remote_health`` part of the status.
+        """
         _, status = self.request("GET", "/api/status")
         return status["remote_health"]
 
     def run_check(self):
-        """Press 'check again' and wait until the check is over."""
+        """!
+        @brief Press 'check again' and wait until the check is over.
+        @return The remote health after the check.
+        """
         status, _ = self.request("POST", "/api/remotes/check")
         self.assertEqual(status, 202)
         deadline = time.time() + 10
@@ -516,12 +622,24 @@ class ExpiredLoginTests(ServerTestCase):
 
 
 class SyncTests(ServerTestCase):
+    """!
+    @brief Tests for running syncs against the fake rclone.
+
+    The tests check the command that is built: Path1 is the local folder and Path2
+    the remote, the remote (path2) wins conflicts, the user's max size replaces the
+    50M default, rclone output is streamed into the log, and every pair has its own
+    filter file named after the pair's id. For a one-way sync the remote is the
+    source and `sync` has no --filters-file. The overall closing line of a run
+    belongs to no pair. While a sync runs, a second start is refused and folder
+    pairs cannot be changed in any way; afterwards they are unlocked again.
+    """
+
     def test_start_requires_a_local_folder(self):
         self.create_pair(local_path="")
         status, body = self.request("POST", "/api/sync", {"mode": "bisync"})
         self.assertEqual(status, 400)
         self.assertIn("local folder", body["error"].lower())
-        self.assertIn("'Docs'", body["error"])        # says WHICH pair is incomplete
+        self.assertIn("'Docs'", body["error"])
 
     def test_start_requires_an_existing_local_folder(self):
         self.create_pair(local_path=str(self.workdir / "missing"))
@@ -555,18 +673,16 @@ class SyncTests(ServerTestCase):
         self.assertEqual(result["pairs"][0]["exit_code"], 0)
 
         log = self.log_text()
-        # Path1 = local, Path2 = the remote; the remote (path2) wins conflicts.
         self.assertIn(f"ARGS: bisync {self.local_dir} onedrive:", log)
         self.assertIn("--conflict-resolve path2", log)
-        self.assertIn("--max-size 10M", log)          # user's value replaced the 50M default
+        self.assertIn("--max-size 10M", log)
         self.assertNotIn("--max-size 50M", log)
         self.assertIn("--check-access", log)
-        self.assertIn("--filters-file", log)           # bisync's own flag
+        self.assertIn("--filters-file", log)
         self.assertNotIn("--filter-from", log)
         self.assertNotIn("--resync", log)
-        self.assertIn("Copied (new)", log)             # rclone output is streamed into the log
+        self.assertIn("Copied (new)", log)
 
-        # Every pair has its own filter file, named after the pair's id.
         filters = (self.workdir / "data" / "filters" / f"{pair['id']}.txt").read_text()
         self.assertIn("- *.tmp", filters)
         self.assertIn("- node_modules/", filters)
@@ -576,12 +692,12 @@ class SyncTests(ServerTestCase):
         self.request("POST", "/api/sync", {"mode": "download"})
         self.assertEqual(self.wait_for_state({"succeeded", "failed"})["state"], "succeeded")
         log = self.log_text()
-        self.assertIn(f"ARGS: sync onedrive: {self.local_dir}", log)   # the remote is the source
+        self.assertIn(f"ARGS: sync onedrive: {self.local_dir}", log)
         self.assertNotIn("bisync", log.split("ARGS:")[1])
         self.assertIn("--max-delete 25", log)
-        self.assertIn("--filter-from", log)            # `sync` has no --filters-file
+        self.assertIn("--filter-from", log)
         self.assertNotIn("--filters-file", log)
-        self.assertIn("Copied (new)", log)             # i.e. the fake rclone accepted every flag
+        self.assertIn("Copied (new)", log)
 
     def test_dry_run_flag(self):
         self.create_pair()
@@ -596,9 +712,9 @@ class SyncTests(ServerTestCase):
         self.assertEqual(self.wait_for_state({"succeeded", "failed"})["state"], "succeeded")
         self.assertTrue((self.local_dir / "RCLONE_TEST").exists())
         log = self.log_text()
-        self.assertIn("ARGS: copyto --ignore-existing", log)           # uploads RCLONE_TEST
+        self.assertIn("ARGS: copyto --ignore-existing", log)
         self.assertIn("onedrive:RCLONE_TEST", log)
-        self.assertIn("--resync --resync-mode path2", log)             # the remote wins on baseline
+        self.assertIn("--resync --resync-mode path2", log)
 
     def test_resync_is_refused_for_download_mode(self):
         self.create_pair()
@@ -650,9 +766,8 @@ class SyncTests(ServerTestCase):
         entries = self.log_entries()
         for name in ("Docs", "Photos"):
             tagged = [entry["text"] for entry in entries if entry["source"] == name]
-            self.assertTrue(any("Copied (new)" in text for text in tagged), name)   # rclone lines
-            self.assertTrue(any(text.startswith("$ ") for text in tagged), name)    # the app's own lines
-        # The overall closing line belongs to no pair.
+            self.assertTrue(any("Copied (new)" in text for text in tagged), name)
+            self.assertTrue(any(text.startswith("$ ") for text in tagged), name)
         closing = [entry for entry in entries if entry["text"].startswith("== SUCCEEDED")]
         self.assertEqual([entry["source"] for entry in closing if "All 2" in entry["text"]], [""])
 
@@ -663,8 +778,7 @@ class SyncTests(ServerTestCase):
         self.assertEqual(self.wait_for_state({"running"})["state"], "running")
 
         status, _ = self.request("POST", "/api/sync", {"mode": "bisync"})
-        self.assertEqual(status, 409)                      # second start refused
-        # Folder pairs cannot be changed in any way while a sync runs.
+        self.assertEqual(status, 409)
         for method, path, body in (("POST", "/api/pairs", self.pair_data("Other")),
                                    ("PUT", f"/api/pairs/{pair['id']}", self.pair_data(max_size="1G")),
                                    ("PUT", f"/api/pairs/{pair['id']}/enabled", {"enabled": False}),
@@ -679,7 +793,7 @@ class SyncTests(ServerTestCase):
         self.assertIn("Stopped by you", result["message"])
 
         status, _ = self.request("PUT", f"/api/pairs/{pair['id']}", self.pair_data(max_size="1G"))
-        self.assertEqual(status, 200)                      # unlocked again
+        self.assertEqual(status, 200)
 
     def test_missing_rclone_is_reported(self):
         self.app.sync_manager._rclone_binary = "definitely-not-installed-rclone"
@@ -692,7 +806,18 @@ class SyncTests(ServerTestCase):
 
 
 class MultiplePairsTests(ServerTestCase):
-    """Several folder pairs in one run: parallel when allowed, one after the other when not."""
+    """!
+    @brief Tests for several folder pairs in one run: parallel when allowed, one after the other when not.
+
+    Nested pairs run at the same time without waiting, because they no longer touch
+    the same files: the outer pair leaves the inner folder out, the inner pair does
+    not, and the user's own exclusions stay. The outer pair's filters do not depend
+    on the switch (bisync would demand a new first-time setup). A pair the store
+    would refuse is slipped in the way an edited pairs.json would; switching one of
+    them off is the way out. A single pair gets no "All 2 pairs" line. Renaming a
+    pair does not change what was synced, so its result stays, but a changed setup
+    is a different pair as far as the result is concerned.
+    """
 
     def test_pairs_without_shared_folders_run_at_the_same_time(self):
         os.environ["FAKE_RCLONE_MODE"] = "slow"
@@ -709,7 +834,10 @@ class MultiplePairsTests(ServerTestCase):
         self.assertTrue(all(pair["state"] == "cancelled" for pair in result["pairs"]))
 
     def nested_pairs(self):
-        """'Outer' with 'Inner' (a folder inside it, at the same spot on the remote) and a separate pair."""
+        """!
+        @brief Create 'Outer' with 'Inner' (a folder inside it, at the same spot on the remote).
+        @return A tuple (outer, inner) of the created pairs.
+        """
         outer_dir = self.make_folder("outer")
         inner_dir = outer_dir / "inner"
         inner_dir.mkdir()
@@ -718,6 +846,11 @@ class MultiplePairsTests(ServerTestCase):
         return outer, inner
 
     def filter_file(self, pair):
+        """!
+        @brief Read the filter file of a pair.
+        @param pair The pair as the API reports it.
+        @return The text of its filter file.
+        """
         return (self.workdir / "data" / "filters" / f"{pair['id']}.txt").read_text()
 
     def test_a_pair_inside_another_one_is_synced_by_itself_only(self):
@@ -725,13 +858,12 @@ class MultiplePairsTests(ServerTestCase):
         outer, inner = self.nested_pairs()
         self.request("POST", "/api/sync", {"mode": "bisync"})
 
-        # No waiting: both run at the same time, because they no longer touch the same files.
         pairs = self.wait_for_pairs(lambda pairs: all(pair["state"] == "running" for pair in pairs.values()))
         self.assertEqual(len(pairs), 2)
 
-        self.assertIn("- /inner/", self.filter_file(outer))        # the outer pair leaves the folder out ...
-        self.assertNotIn("/inner/", self.filter_file(inner))       # ... the inner pair does not
-        self.assertIn("- *.tmp", self.filter_file(outer))          # the user's own exclusions stay
+        self.assertIn("- /inner/", self.filter_file(outer))
+        self.assertNotIn("/inner/", self.filter_file(inner))
+        self.assertIn("- *.tmp", self.filter_file(outer))
         self.assertTrue(any(entry["source"] == "Outer" and "Skipping /inner/" in entry["text"]
                             for entry in self.log_entries()))
 
@@ -746,7 +878,6 @@ class MultiplePairsTests(ServerTestCase):
 
         states = {pair["name"]: pair["state"] for pair in result["pairs"]}
         self.assertEqual(states, {"Outer": "succeeded", "Inner": "idle"})
-        # The outer pair's filters do not depend on the switch (bisync would demand a new first-time setup).
         self.assertIn("- /inner/", self.filter_file(outer))
 
     def test_the_filters_of_a_pair_do_not_change_between_runs(self):
@@ -761,7 +892,6 @@ class MultiplePairsTests(ServerTestCase):
     def test_a_run_refuses_clashing_pairs_that_were_edited_in_by_hand(self):
         from backend.pairs import FolderPair
         self.create_pair("Docs", local_path=str(self.local_dir), remote="onedrive:Docs")
-        # The store would refuse this pair, so it is slipped in the way an edited pairs.json would.
         store = self.app.sync_manager._pair_store
         store._pairs.append(FolderPair.from_dict(
             self.pair_data("Hand made", local_path=str(self.make_folder("other")), remote="onedrive:Docs"),
@@ -771,7 +901,6 @@ class MultiplePairsTests(ServerTestCase):
         self.assertEqual(status, 400)
         self.assertIn("'Docs' and 'Hand made' clash", body["error"])
 
-        # Switching one of them off is the way out.
         self.request("PUT", "/api/pairs/hand/enabled", {"enabled": False})
         self.assertEqual(self.request("POST", "/api/sync", {"mode": "bisync"})[0], 202)
         self.wait_for_state({"succeeded", "failed"})
@@ -783,7 +912,7 @@ class MultiplePairsTests(ServerTestCase):
 
         result = self.wait_for_state({"succeeded", "failed"})
         self.assertEqual(result["state"], "succeeded")
-        self.assertIn("Finished successfully", result["message"])     # one pair: no "All 2 pairs"
+        self.assertIn("Finished successfully", result["message"])
         states = {pair["name"]: pair["state"] for pair in result["pairs"]}
         self.assertEqual(states, {"On": "succeeded", "Off": "idle"})
         log = self.log_text()
@@ -825,10 +954,8 @@ class MultiplePairsTests(ServerTestCase):
         self.wait_for_state({"succeeded"})
         self.assertEqual(self.pairs_by_name()["A"]["state"], "succeeded")
 
-        # Renaming does not change what was synced, so the result stays ...
         self.request("PUT", f"/api/pairs/{pair['id']}", self.pair_data("Renamed", local_path=pair["local_path"], remote=pair["remote"]))
         self.assertEqual(self.pairs_by_name()["Renamed"]["state"], "succeeded")
-        # ... but a changed setup is a different pair as far as the result is concerned.
         self.request("PUT", f"/api/pairs/{pair['id']}", self.pair_data("Renamed", local_path=pair["local_path"], remote="onedrive:Other"))
         self.assertEqual(self.pairs_by_name()["Renamed"]["state"], "idle")
 

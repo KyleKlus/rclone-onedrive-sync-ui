@@ -1,3 +1,1 @@
-# Only needed for the desktop window (run_desktop.py). The browser mode needs nothing.
-# Needs the WebKitGTK system library too, see the README.
 pywebview>=5.0

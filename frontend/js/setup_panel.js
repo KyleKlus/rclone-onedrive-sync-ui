@@ -1,60 +1,77 @@
 /**
- * setup_panel.js
+ * @file setup_panel.js
+ * @brief Switches the folder-pair card between its overview and its editor and animates the height.
+ *
  * The folder-pair card shows ONE of two views in the same spot:
  *
  *   "overview"  the list of all folder pairs (PairsView)
  *   "editor"    the setup of a single pair (SetupView)
  *
- * This class only switches between them. The CSS (components.css, section 7b)
+ * This class only switches between them. The CSS (components.css)
  * slides the views; this class additionally makes the CARD grow or shrink
  * smoothly when the two views need different heights (for example a pair with
  * many exclusions), instead of the card jumping to the new height at once.
  */
 
+/**
+ * @brief The folder-pair card with its two views.
+ */
 export class SetupPanel {
+  /**
+   * @brief Remember the card's height and watch it for changes.
+   *
+   * Keeps the settled height up to date while nothing is animating (the window
+   * is resized, exclusions are added, ...).
+   */
   constructor() {
     this.element = document.getElementById("setup-panel");
 
-    /** The height the card had before the current change (what the animation starts from). */
     this.settledHeight = this.element.offsetHeight;
     this.isAnimating = false;
 
-    // Keep the settled height up to date while nothing is animating (the window
-    // is resized, exclusions are added, ...).
     new ResizeObserver(() => {
       if (!this.isAnimating) this.settledHeight = this.element.offsetHeight;
     }).observe(this.element);
   }
 
+  /**
+   * @brief Show the list of all folder pairs.
+   */
   showOverview() {
     this.#switchTo("overview");
   }
 
+  /**
+   * @brief Show the setup of a single pair.
+   */
   showEditor() {
     this.#switchTo("editor");
   }
 
-  // ------------------------------------------------------------------
-
   /**
-   * Show a view and animate the card from its old height to the new one.
+   * @brief Show a view and animate the card from its old height to the new one.
+   * @param {string} view "overview" or "editor".
+   *
    * The caller may already have filled the views with new content: the old
    * height is the one remembered from before, the new one is measured now.
+   * The start height is applied before the target height is set, so the CSS
+   * transition has something to run from. A safety timer ends the animation in
+   * case no transitionend event arrives. A fast second click ends the first
+   * animation first.
    */
   #switchTo(view) {
     const panel = this.element;
     if (panel.dataset.view === view) return;
 
-    this.#finishAnimation();                  // a fast second click: end the first animation
+    this.#finishAnimation();
     const from = this.settledHeight;
     panel.dataset.view = view;
-    const to = panel.offsetHeight;            // the card's natural height with the new view
+    const to = panel.offsetHeight;
     if (from === to) return;
 
-    // Start where the card was, then let the CSS transition run to the new height.
     this.isAnimating = true;
     panel.style.height = `${from}px`;
-    panel.offsetHeight;                       // apply the start height before changing it
+    panel.offsetHeight;
     panel.style.transition = "height var(--slide-duration) var(--ease)";
     panel.style.height = `${to}px`;
 
@@ -67,10 +84,12 @@ export class SetupPanel {
       if (event.propertyName === "height") this.#finishAnimation();
     };
     panel.addEventListener("transitionend", this.onEnd);
-    this.safetyTimer = setTimeout(() => this.#finishAnimation(), 800);   // in case no event arrives
+    this.safetyTimer = setTimeout(() => this.#finishAnimation(), 800);
   }
 
-  /** Hand the height back to the CSS (the card sizes itself again). */
+  /**
+   * @brief Hand the height back to the CSS so the card sizes itself again.
+   */
   #finishAnimation() {
     if (!this.isAnimating) return;
     const panel = this.element;

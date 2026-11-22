@@ -1,5 +1,6 @@
-"""
-The desktop shell: everything needed to run the app as one native window.
+"""!
+@file __init__.py
+@brief The desktop shell: everything needed to run the app as one native window.
 
 It wraps the existing backend, it never changes it:
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""
-Start Rclone Sync.
+"""!
+@file run.py
+@brief Start Rclone Sync in browser mode.
 
     python run.py            start the server, then open the printed address
     python run.py --open     also open it in your default browser
@@ -16,6 +17,10 @@ from backend.app import Application
 
 
 def parse_arguments() -> argparse.Namespace:
+    """!
+    @brief Read the command line.
+    @return The parsed arguments (``port``, ``open``).
+    """
     parser = argparse.ArgumentParser(description="Rclone Sync (rclone front end)")
     parser.add_argument("--port", type=int, default=config.PORT, help="port to listen on")
     parser.add_argument("--open", action="store_true", help="open the UI in the default browser")
@@ -23,6 +28,10 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def main() -> int:
+    """!
+    @brief Start the server and run it until Ctrl+C.
+    @return The process exit code (1 if the server could not start, else 0).
+    """
     arguments = parse_arguments()
 
     try:

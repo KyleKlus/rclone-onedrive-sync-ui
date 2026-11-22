@@ -1,14 +1,18 @@
 /**
- * api.js
- * The ONLY place in the frontend that talks to the backend.
+ * @file api.js
+ * @brief The only place in the frontend that talks to the backend.
+ *
  * If an endpoint changes, this is the single file to update.
  */
 
-/** An error returned by (or while reaching) the backend. */
+/**
+ * @brief An error returned by (or while reaching) the backend.
+ */
 export class ApiError extends Error {
   /**
-   * @param {string} message  Human-readable text, safe to show to the user.
-   * @param {number} status   HTTP status, or 0 if the backend was unreachable.
+   * @brief Create the error.
+   * @param {string} message Human-readable text, safe to show to the user.
+   * @param {number} status HTTP status, or 0 if the backend was unreachable.
    */
   constructor(message, status) {
     super(message);
@@ -17,97 +21,139 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * @brief One method per backend endpoint.
+ */
 export class ApiClient {
   /**
-   * @returns {Promise<object>} Current system state, including `pairs`: every folder
+   * @brief Fetch the current system state.
+   * @return {Promise<object>} Current system state, including `pairs`: every folder
    *   pair with its name, on/off switch, paths and its own sync state.
    */
   getStatus() {
     return this.#request("GET", "/api/status");
   }
 
-  /** @returns {Promise<object>} The default setup of a pair (the backend owns them). */
+  /**
+   * @brief Fetch the default setup of a pair (the backend owns the defaults).
+   * @return {Promise<object>} The default setup of a pair.
+   */
   getDefaultSetup() {
     return this.#request("GET", "/api/setup/defaults");
   }
 
   /**
-   * Ask the backend to check the logins of the remotes in use right now. It answers at
-   * once; the result shows up in `remote_health` of the next status.
-   * @returns {Promise<object>} The remote health as it is at this moment.
+   * @brief Ask the backend to check the logins of the remotes in use right now.
+   * @return {Promise<object>} The remote health as it is at this moment.
+   *
+   * The backend answers at once; the result shows up in `remote_health` of the next status.
    */
   checkRemotes() {
     return this.#request("POST", "/api/remotes/check");
   }
 
   /**
-   * @returns {Promise<{remotes: {name: string, type: string}[], error: string}>}
-   *   The remotes (clouds) rclone has configured, names without the colon. If rclone could
-   *   not be asked, `remotes` is empty and `error` says why.
+   * @brief Fetch the remotes (clouds) rclone has configured.
+   * @return {Promise<{remotes: {name: string, type: string}[], error: string}>}
+   *   The remotes, names without the colon. If rclone could not be asked, `remotes`
+   *   is empty and `error` says why.
    */
   getRemotes() {
     return this.#request("GET", "/api/remotes");
   }
 
-  /** @returns {Promise<object>} One folder pair with its full setup (exclusions etc.). */
+  /**
+   * @brief Fetch one folder pair with its full setup (exclusions etc.).
+   * @param {string} pairId Id of the pair.
+   * @return {Promise<object>} The folder pair.
+   */
   getPair(pairId) {
     return this.#request("GET", this.#pairPath(pairId));
   }
 
   /**
-   * @param {object} pair  {name, local_path, remote, max_size, exclusions}
-   * @returns {Promise<object>} The pair as created (cleaned up by the backend, with its id).
+   * @brief Create a new folder pair.
+   * @param {object} pair {name, local_path, remote, max_size, exclusions}
+   * @return {Promise<object>} The pair as created (cleaned up by the backend, with its id).
    */
   createPair(pair) {
     return this.#request("POST", "/api/pairs", pair);
   }
 
   /**
-   * @param {string} pairId
-   * @param {object} pair  {name, local_path, remote, max_size, exclusions}
-   * @returns {Promise<object>} The pair as saved (cleaned up by the backend).
+   * @brief Save the setup of an existing folder pair.
+   * @param {string} pairId Id of the pair.
+   * @param {object} pair {name, local_path, remote, max_size, exclusions}
+   * @return {Promise<object>} The pair as saved (cleaned up by the backend).
    */
   updatePair(pairId, pair) {
     return this.#request("PUT", this.#pairPath(pairId), pair);
   }
 
-  /** Switch a folder pair on (it is synced) or off (it is skipped). */
+  /**
+   * @brief Switch a folder pair on (it is synced) or off (it is skipped).
+   * @param {string} pairId Id of the pair.
+   * @param {boolean} enabled True to switch the pair on.
+   * @return {Promise<object>} The backend's answer.
+   */
   setPairEnabled(pairId, enabled) {
     return this.#request("PUT", `${this.#pairPath(pairId)}/enabled`, { enabled });
   }
 
-  /** Remove a folder pair for good. */
+  /**
+   * @brief Remove a folder pair for good.
+   * @param {string} pairId Id of the pair.
+   * @return {Promise<object>} The backend's answer.
+   */
   deletePair(pairId) {
     return this.#request("DELETE", this.#pairPath(pairId));
   }
 
   /**
-   * @param {{mode: string, resync?: boolean, dryRun?: boolean}} options
-   * @returns {Promise<object>} The new system state.
+   * @brief Start a sync of all active folder pairs.
+   * @param {{mode: string, resync?: boolean, dryRun?: boolean}} options What kind of sync to run.
+   * @return {Promise<object>} The new system state.
    */
   startSync({ mode, resync = false, dryRun = false }) {
     return this.#request("POST", "/api/sync", { mode, resync, dry_run: dryRun });
   }
 
-  /** @returns {Promise<object>} The new system state. */
+  /**
+   * @brief Stop the running sync.
+   * @return {Promise<object>} The new system state.
+   */
   stopSync() {
     return this.#request("POST", "/api/stop");
   }
 
   /**
-   * @param {number} afterId  Id of the last log line the UI already has (0 = from the start).
-   * @returns {Promise<{entries: object[], last_id: number}>}
+   * @brief Fetch the log lines newer than the given id.
+   * @param {number} afterId Id of the last log line the UI already has (0 = from the start).
+   * @return {Promise<{entries: object[], last_id: number}>} The new lines and the newest id.
    */
   getLog(afterId) {
     return this.#request("GET", `/api/log?after=${encodeURIComponent(afterId)}`);
   }
 
-  // ------------------------------------------------------------------
-
+  /**
+   * @brief Build the URL path of one folder pair.
+   * @param {string} pairId Id of the pair.
+   * @return {string} The path, with the id safely encoded.
+   */
   #pairPath(pairId) {
     return `/api/pairs/${encodeURIComponent(pairId)}`;
   }
 
+  /**
+   * @brief Send one request to the backend and return its JSON answer.
+   * @param {string} method HTTP method.
+   * @param {string} path URL path, starting with "/api".
+   * @param {object} [body] Optional JSON body.
+   * @return {Promise<object>} The decoded JSON answer.
+   * @throws {ApiError} If the backend is unreachable or answers with an error status.
+   *
+   * An answer that is not JSON is treated as empty, so the generic HTTP-status message is used.
+   */
   async #request(method, path, body) {
     const options = { method, headers: {} };
     if (body !== undefined) {
@@ -126,7 +172,6 @@ export class ApiClient {
     try {
       data = await response.json();
     } catch {
-      // Non-JSON answer: fall through to the generic message below.
     }
 
     if (!response.ok) {

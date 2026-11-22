@@ -8,11 +8,15 @@
  * It only displays; it never talks to the backend itself.
  */
 
-/** How long the "Copied" confirmation stays on a copy button. */
+/** @brief How long the "Copied" confirmation stays on a copy button. */
 const COPIED_LABEL_MS = 1500;
 
+/**
+ * @brief The header badge for expired logins and its popover.
+ */
 export class ExpiryView {
   /**
+   * @brief Look up the elements and wire the badge, the check button and the closing gestures.
    * @param {{onCheck: function(): void}} callbacks `onCheck` runs when "Check again" is pressed.
    */
   constructor({ onCheck }) {
@@ -41,9 +45,12 @@ export class ExpiryView {
   }
 
   /**
-   * Show the expired logins of a status, or hide the badge when there are none.
+   * @brief Show the expired logins of a status, or hide the badge when there are none.
    * @param {{expired: object[], checking: boolean, checked_at: ?number}} health The `remote_health` of a status.
    * @param {boolean} isBusy True while a sync runs; checks are paused then.
+   *
+   * The list is only rebuilt when its content changed (compared by a signature), so the
+   * popover stays stable while the status is polled every second.
    */
   render(health, isBusy) {
     const expired = health?.expired ?? [];
@@ -73,22 +80,39 @@ export class ExpiryView {
     this.checked.textContent = this.#describeCheck(health, isBusy);
   }
 
-  /** Hide everything, e.g. while the backend cannot be reached. */
+  /**
+   * @brief Hide everything, e.g. while the backend cannot be reached.
+   */
   hide() {
     this.root.hidden = true;
     this.#close();
   }
 
+  /**
+   * @brief Build the line that tells when the logins were last checked.
+   * @param {object} health The `remote_health` of a status.
+   * @param {boolean} isBusy True while a sync runs.
+   * @return {string} The text, or "" if there was no check yet.
+   */
   #describeCheck(health, isBusy) {
     if (isBusy) return "Checking is paused while a sync runs.";
     if (!health.checked_at) return "";
     return `Last checked ${new Date(health.checked_at * 1000).toLocaleTimeString()}`;
   }
 
+  /**
+   * @brief Replace the list in the popover with one entry per expired remote.
+   * @param {object[]} expired The expired remotes of the health report.
+   */
   #renderList(expired) {
     this.list.replaceChildren(...expired.map((item) => this.#createItem(item)));
   }
 
+  /**
+   * @brief Build the list entry of one expired remote.
+   * @param {{name: string, command: string, reason: string}} item The expired remote.
+   * @return {HTMLLIElement} The entry with name, command, copy button and reason.
+   */
   #createItem(item) {
     const entry = document.createElement("li");
     entry.className = "expiry__item";
@@ -121,7 +145,7 @@ export class ExpiryView {
   }
 
   /**
-   * Copy a command to the clipboard and say so on its button.
+   * @brief Copy a command to the clipboard and say so on its button.
    * @param {string} command The text to copy.
    * @param {HTMLButtonElement} button The button that was pressed.
    */
@@ -140,15 +164,25 @@ export class ExpiryView {
     setTimeout(() => { button.textContent = "Copy"; }, COPIED_LABEL_MS);
   }
 
+  /**
+   * @brief Tell whether the popover is open.
+   * @return {boolean} True if the popover is visible.
+   */
   #isOpen() {
     return !this.popover.hidden;
   }
 
+  /**
+   * @brief Open the popover.
+   */
   #open() {
     this.popover.hidden = false;
     this.badge.setAttribute("aria-expanded", "true");
   }
 
+  /**
+   * @brief Close the popover.
+   */
   #close() {
     this.popover.hidden = true;
     this.badge.setAttribute("aria-expanded", "false");

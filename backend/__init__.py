@@ -1,5 +1,6 @@
-"""
-Rclone Sync backend.
+"""!
+@file __init__.py
+@brief Package of the Rclone Sync backend.
 
 A small, dependency-free (standard library only) Python backend that wraps
 the ``rclone`` command line tool and exposes it to the web frontend through

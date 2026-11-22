@@ -1,52 +1,31 @@
-/* ==========================================================================
-   base.css
-   Design tokens, reset, typography and the page layout.
-
-   The look follows kyleklus.de/printable-calendar-generator: the Itim font,
-   a soft green/blue background with a noise texture, rounded "squircle"
-   cards and tactile 3D buttons.
-
-   Colours are derived from ONE number, --hue. Any element can set its own
-   --hue (see .btn--danger) and everything inside it re-colours itself.
-   Component styles live in components.css.
-   ========================================================================== */
-
-/* The font is loaded from a CDN (allowed in the CSP, see http_server.py).
-   Without internet the UI falls back to the system "cursive" font. */
 @import url(https://cdn.jsdelivr.net/npm/@fontsource/itim@5.3.0/index.css);
 
 :root {
-  /* ---- Colour ---- */
-  --hue: 132;                       /* 132 = green. Try 210 for blue, 4 for red. */
+  --hue: 132;
   --ink: #181713;
   --heading: #25562a;
   --card-bg: #e1eef1;
-  /* Soft and diffuse (no hard edge), so cards sit on the page without looking raised. */
+
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 20px rgba(0, 0, 0, 0.10);
   --log-bg: #181713;
   --log-text: #e9e6da;
 
-  /* ---- Tactile surfaces (buttons, inputs, switches) ---- */
   --border-width: 3px;
   --border-color: rgba(0, 0, 0, 0.2);
   --radius: 8px;
   --card-radius: 40px;
-  --rest-height: 4px;               /* how "tall" a surface looks when idle */
+  --rest-height: 4px;
   --shadow-color: rgba(0, 0, 0, 0.18);
   --focus-color: #0080ff;
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
   --duration: 0.18s;
 
-  /* ---- Type ---- */
   --font-display: Itim, cursive;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
   --font-size: 1.09rem;
 
-  /* ---- Spacing ---- */
   --gap: 1.5rem;
 }
-
-/* ---------- Reset ---------- */
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -60,12 +39,6 @@ body {
   font-size: var(--font-size);
   line-height: 1.4;
 
-  /*
-   * Background: the calendar generator's two-layer gradient plus a noise texture.
-   * It scrolls WITH the page on purpose: a background that stays fixed while the
-   * content moves has to be re-composited on every scroll step, which is costly
-   * on weaker graphics setups. Here, scrolling only moves already-painted content.
-   */
   background-color: #ffffff;
   background-image:
     url(../img/noise.svg),
@@ -96,12 +69,9 @@ code {
   white-space: nowrap;
 }
 
-/* People who ask their system for less motion get instant state changes. */
 @media (prefers-reduced-motion: reduce) {
   :root { --duration: 0s; }
 }
-
-/* ---------- Page header ---------- */
 
 .app-header {
   display: flex;
@@ -131,11 +101,6 @@ code {
   user-select: none;
 }
 
-/* ---------- Page layout ----------
-   Wide screens: the status banner on top, then Setup (left) and Run (right)
-   side by side with equal height, then the log below, one screen tall.
-   Narrow screens: one column in page order (status, setup, run, log). */
-
 .layout {
   display: grid;
   gap: var(--gap);
@@ -146,7 +111,6 @@ code {
 }
 
 @media (min-width: 1000px) {
-  /* Grid items stretch by default, which is what makes Setup and Run equally tall. */
   .layout {
     grid-template-columns: minmax(0, 7fr) minmax(340px, 5fr);
     grid-template-areas:

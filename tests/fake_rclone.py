@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""
-A stand-in for rclone, used only by the tests.
+"""!
+@file fake_rclone.py
+@brief A stand-in for rclone, used only by the tests.
 
 Behaviour is chosen with the environment variable FAKE_RCLONE_MODE:
     ok           print a few log lines, exit 0   (default)
@@ -22,6 +23,10 @@ while the other pairs of the same run succeed.
 
 The first thing it prints is its own argument list, so tests can check
 exactly which command the app built.
+
+``listremotes`` prints only the remotes (no ARGS line: the app parses this
+output). Like the real rclone, it refuses flags a subcommand does not have:
+--filters-file exists only for bisync; plain sync uses --filter-from.
 """
 
 import os
@@ -30,7 +35,6 @@ import time
 
 mode = os.environ.get("FAKE_RCLONE_MODE", "ok")
 
-# `listremotes` prints only the remotes (no ARGS line: the app parses this output).
 if len(sys.argv) > 1 and sys.argv[1] == "listremotes":
     if os.environ.get("FAKE_RCLONE_REMOTES_FAIL"):
         print("CRITICAL: Failed to load config file: permission denied", file=sys.stderr, flush=True)
@@ -56,8 +60,6 @@ if len(sys.argv) > 1 and sys.argv[1] == "lsd":
 
 print("ARGS: " + " ".join(sys.argv[1:]), flush=True)
 
-# Like the real rclone, refuse flags a subcommand does not have.
-# (--filters-file exists only for bisync; plain sync uses --filter-from.)
 if len(sys.argv) > 1 and sys.argv[1] == "sync" and "--filters-file" in sys.argv:
     print("Error: unknown flag: --filters-file", flush=True)
     sys.exit(1)

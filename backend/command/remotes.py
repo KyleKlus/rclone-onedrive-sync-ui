@@ -1,5 +1,6 @@
-"""
-Asks rclone which remotes ("cloud accounts") are set up on this PC.
+"""!
+@file remotes.py
+@brief Asks rclone which remotes ("cloud accounts") are set up on this PC.
 
 rclone keeps its remotes in its own config file (created with ``rclone config``).
 This module never reads that file itself: it runs ``rclone listremotes --long``
@@ -25,39 +26,67 @@ from .rclone import RcloneCommandBuilder
 
 @dataclass(frozen=True)
 class RemoteInfo:
-    """One remote from ``rclone config``."""
+    """!
+    @brief One remote from ``rclone config``.
 
-    name: str   # without the colon: "onedrive"
-    type: str   # the kind of cloud: "onedrive", "drive", "iclouddrive", "s3", ...
+    Attributes: ``name`` is the remote's name without the colon ("onedrive");
+    ``type`` is the kind of cloud ("onedrive", "drive", "iclouddrive", "s3", ...).
+    """
+
+    name: str
+    type: str
 
     def to_dict(self) -> dict:
+        """!
+        @brief Convert the remote to a JSON-friendly dict.
+        @return A dict with the keys "name" and "type".
+        """
         return {"name": self.name, "type": self.type}
 
 
 @dataclass(frozen=True)
 class RemoteListing:
-    """The remotes rclone knows, or the reason why they could not be listed."""
+    """!
+    @brief The remotes rclone knows, or the reason why they could not be listed.
+
+    Attributes: ``remotes`` is a tuple of ``RemoteInfo``; ``error`` is empty when
+    rclone answered, otherwise a sentence for the user.
+    """
 
     remotes: tuple = ()
-    error: str = ""     # empty = rclone answered; otherwise a sentence for the user
+    error: str = ""
 
     def to_dict(self) -> dict:
+        """!
+        @brief Convert the listing to a JSON-friendly dict.
+        @return A dict with the keys "remotes" and "error".
+        """
         return {"remotes": [remote.to_dict() for remote in self.remotes], "error": self.error}
 
 
 class RemoteCatalog:
-    """Lists the remotes that rclone has configured."""
+    """!
+    @brief Lists the remotes that rclone has configured.
+    """
 
     def __init__(
         self,
         command_builder: RcloneCommandBuilder,
         timeout_seconds: float = config.REMOTE_LIST_TIMEOUT_SECONDS,
     ) -> None:
+        """!
+        @brief Create a catalog.
+        @param command_builder Builds the ``listremotes`` command line.
+        @param timeout_seconds How long to wait for rclone's answer.
+        """
         self._command_builder = command_builder
         self._timeout_seconds = timeout_seconds
 
     def list_remotes(self) -> RemoteListing:
-        """Run ``rclone listremotes --long``. Always returns a listing, never raises."""
+        """!
+        @brief Run ``rclone listremotes --long``.
+        @return A listing with the remotes or an error text; it never raises.
+        """
         command = self._command_builder.build_list_remotes_command()
         try:
             result = subprocess.run(
@@ -81,9 +110,12 @@ class RemoteCatalog:
 
 
 def parse_remote_listing(output: str) -> tuple:
-    """
-    Understand the output of ``rclone listremotes --long``. Each line is the
-    remote's name with a colon, then its type, padded with spaces:
+    """!
+    @brief Understand the output of ``rclone listremotes --long``.
+    @param output The text rclone printed.
+    @return A tuple of ``RemoteInfo``.
+
+    Each line is the remote's name with a colon, then its type, padded with spaces:
 
         onedrive:    onedrive
         my-drive:    drive
@@ -101,6 +133,10 @@ def parse_remote_listing(output: str) -> tuple:
 
 
 def _last_line(text: str) -> str:
-    """The last non-empty line of ``text``; rclone puts the actual reason there."""
+    """!
+    @brief Pick the last non-empty line of a text; rclone puts the actual reason there.
+    @param text Usually rclone's stderr.
+    @return The stripped line, or an empty string if there is none.
+    """
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     return lines[-1] if lines else ""

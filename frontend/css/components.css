@@ -1,24 +1,3 @@
-/* ==========================================================================
-   components.css
-   Sections: 1 Tactile surfaces (the shared 3D effect)   2 Buttons
-             3 Inputs and switches   4 Panels (cards)   5 Status banner
-             6 Mode picker   7 Setup (7b: Folder pairs)   8 Live log
-   Colours and sizes come from the tokens in base.css.
-   ========================================================================== */
-
-
-/* ==========================================================================
-   1. TACTILE SURFACES
-   Buttons, inputs and switches share ONE recipe (cards are flat on purpose):
-
-     --rest   how tall the surface looks when nothing happens
-     --lift   how tall it looks RIGHT NOW (this is the only thing states change)
-
-   The "side" of the 3D block is a hard shadow `--lift` pixels tall. The
-   element is moved by (rest - lift) so its top surface moves while the
-   bottom edge stays put: lift < rest looks like pressing it down.
-   ========================================================================== */
-
 .btn,
 .field__input,
 .switch,
@@ -42,18 +21,12 @@
     background-color var(--duration) var(--ease);
 }
 
-/* One focus ring for everything keyboard-reachable. */
 :is(.btn, .field__input, .switch:has(input), .mode-card:has(input)):focus-visible,
 .switch:has(input:focus-visible),
 .mode-card:has(input:focus-visible) .mode-card__body {
   outline: 2px solid var(--focus-color);
   outline-offset: 3px;
 }
-
-
-/* ==========================================================================
-   2. BUTTONS
-   ========================================================================== */
 
 .btn {
   display: inline-flex;
@@ -71,7 +44,6 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Hover sinks the button halfway, pressing sinks it almost flat. */
 .btn:hover:not(:disabled)  { --lift: calc(var(--rest) / 2); }
 .btn:active:not(:disabled) { --lift: 1px; }
 
@@ -81,7 +53,6 @@
   filter: grayscale(0.5);
 }
 
-/* Icons sit before the label and scale with the font. */
 .btn > svg {
   flex: none;
   width: 1em;
@@ -89,20 +60,13 @@
   fill: currentColor;
 }
 
-/* A button that holds only an icon (the pen). It is as tall as a small text button. */
 .btn--icon { padding-inline: 0.5rem; }
 .btn--icon > svg { width: 1.15em; height: 1.15em; }
 
-/* Variants only change the hue. */
 .btn--danger { --hue: 4; }
 .btn--plain  { --surface: hsl(var(--hue), 40%, 95%); --side: hsl(var(--hue), 10%, 47%); }
 .btn--small  { padding: 0.1rem 0.6rem; font-size: 0.9rem; --rest: 3px; }
 
-/* Flat ("outline") button for icon buttons and tertiary actions. It does not
-   stand out from the card until you point at it: a thin outline at rest,
-   a light fill on hover, a green tint while pressed. No 3D block, no lift.
-   The border is 2px (not 3px), so the padding grows by 1px to keep the size. */
-/* border-color is added to the shared transition so the outline fades in and out too. */
 .btn--flat, .btn--ghost {
   transition:
     transform var(--duration) var(--ease),
@@ -119,7 +83,7 @@
   transform: none;
   box-shadow: none;
 }
-.btn--flat.btn--icon  { width: 2rem; height: 2rem; padding: 0; }   /* square */
+.btn--flat.btn--icon  { width: 2rem; height: 2rem; padding: 0; }
 .btn--flat.btn--small { padding: calc(0.1rem + 1px) calc(0.6rem + 1px); }
 .btn--flat:hover:not(:disabled) {
   background-color: rgba(255, 255, 255, 0.7);
@@ -131,8 +95,6 @@
 }
 .btn--flat[data-armed="true"] { background-color: hsl(4, 90%, 79%); }
 
-/* Ghost button: a flat button whose outline only appears when you point at it.
-   For the quietest actions (Back, the plus in the exclusion field). */
 .btn--ghost {
   background-color: transparent;
   border-width: 2px;
@@ -141,7 +103,7 @@
   transform: none;
   box-shadow: none;
 }
-.btn--ghost.btn--icon { width: 2rem; height: 2rem; padding: 0; }   /* square */
+.btn--ghost.btn--icon { width: 2rem; height: 2rem; padding: 0; }
 .btn--ghost:hover:not(:disabled) {
   background-color: rgba(255, 255, 255, 0.7);
   border-color: rgba(0, 0, 0, 0.4);
@@ -152,9 +114,6 @@
 }
 .btn--ghost[data-armed="true"]    { background-color: hsl(4, 90%, 79%); border-color: rgba(0, 0, 0, 0.2); }
 
-/* The power button of a folder pair. Its colour says what a click does:
-   green while the pair is off (click to switch it on), red while it is on
-   (click to switch it off). */
 .btn--power[aria-pressed="false"] { background-color: hsl(132, 81%, 69%); border-color: rgba(0, 0, 0, 0.35); }
 .btn--power[aria-pressed="true"]  { background-color: hsl(4, 85%, 72%);  border-color: rgba(0, 0, 0, 0.35); }
 .btn--power[aria-pressed="false"]:hover:not(:disabled) { background-color: hsl(132, 81%, 76%); }
@@ -164,15 +123,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.9rem;
-  padding-bottom: 0.4rem;   /* room for the buttons' 3D shadow */
+  padding-bottom: 0.4rem;
 }
 
 .button-row--end { justify-content: flex-end; }
-
-
-/* ==========================================================================
-   3. INPUTS AND SWITCHES
-   ========================================================================== */
 
 .field {
   display: flex;
@@ -203,20 +157,15 @@
   cursor: text;
 }
 
-/* Inputs rise slightly on hover/focus (buttons sink; inputs are "pulled up"). */
 .field__input:is(:hover, :focus):not(:disabled) {
   --lift: calc(var(--rest) * 1.5);
   --surface: hsl(var(--hue), 84%, 90%);
 }
 
-.field__input:focus-visible { outline: none; }   /* the lift + colour is the focus cue */
+.field__input:focus-visible { outline: none; }
 .field__input:disabled { cursor: not-allowed; opacity: 0.7; filter: grayscale(0.5); }
 .field__input--short { max-width: 9rem; }
 
-/* ---- Size field: a number and a unit dropdown inside ONE field ----
-   The wrapper is the field (it carries the .field__input look); the number
-   input inside has no border of its own. The unit is a strip on the right,
-   divided by a line like the x of an exclusion pill. */
 .size-field {
   display: flex;
   align-items: stretch;
@@ -268,7 +217,6 @@
 .size-field__button:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -4px; }
 .size-field__button:disabled { cursor: not-allowed; }
 
-/* The menu is a small card that opens ABOVE the field (below it there is little room: the card ends). */
 .size-field__menu {
   position: absolute;
   bottom: calc(100% + 0.7rem);
@@ -296,10 +244,6 @@
 .size-field__option[aria-selected="true"]::after { content: "\2713"; float: right; margin-left: 0.8rem; }
 .size-field__option:last-child { margin-top: 0.2rem; border-top: 2px solid rgba(0, 0, 0, 0.12); border-radius: 0 0 9px 9px; }
 
-/* ---- Remote field: a dropdown of the rclone remotes and a folder box inside ONE field ----
-   The mirror image of the size field above: the wrapper is the field (it carries the
-   .field__input look), the folder input inside has no border of its own, and the
-   dropdown is a strip at the START, divided from the folder by a line. */
 .remote-field {
   display: flex;
   align-items: stretch;
@@ -310,8 +254,7 @@
   --surface: hsl(var(--hue), 84%, 90%);
 }
 .remote-field[data-disabled] { cursor: not-allowed; opacity: 0.7; filter: grayscale(0.5); }
-/* While its menu is open the whole field is lifted above the fields below it. Every
-   .field__input is its own stacking context, so the menu's z-index alone would not be enough. */
+
 .remote-field:has(.remote-field__button[aria-expanded="true"]) { position: relative; z-index: 10; }
 
 .remote-field__folder {
@@ -326,8 +269,6 @@
 .remote-field__folder:disabled { cursor: not-allowed; }
 .remote-field__folder::placeholder { opacity: 0.55; }
 
-/* The strip keeps its natural width but never takes more than half of the field,
-   so a long remote name cannot push the folder box out. */
 .remote-field__picker { position: relative; display: flex; flex: none; max-width: 50%; }
 
 .remote-field__button {
@@ -360,8 +301,6 @@
 .remote-field__button:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -4px; }
 .remote-field__button:disabled { cursor: not-allowed; }
 
-/* The menu is a small card that opens BELOW the field, at its left edge. With many
-   remotes it scrolls instead of growing out of the card. */
 .remote-field__menu {
   position: absolute;
   top: calc(100% + 0.7rem);
@@ -391,12 +330,12 @@
 .remote-field__option:hover,
 .remote-field__option:focus-visible { background: hsl(var(--hue), 70%, 85%); outline: none; }
 .remote-field__option[aria-selected="true"] { font-weight: 700; }
-/* A fixed-width column on the left holds the check mark, so all names line up. */
+
 .remote-field__option::before { content: ""; flex: none; width: 1em; }
 .remote-field__option[aria-selected="true"]::before { content: "\2713"; }
-/* break-word (not anywhere): a name is only broken when it is longer than the whole menu. */
+
 .remote-field__option-name { overflow-wrap: break-word; }
-/* The kind of cloud ("onedrive", "drive", ...) is secondary information, on the right. */
+
 .remote-field__option-type {
   margin-left: auto;
   padding-left: 1rem;
@@ -406,19 +345,13 @@
   white-space: nowrap;
 }
 
-/* ---- Switch (pill toggle) ----
-   The real checkbox stays in the DOM (hidden visually, not with display:none)
-   so keyboards and screen readers keep working. */
-
 .switch {
-  /* Sizes are the original design's. `content-box` matters: the 3px border
-     sits OUTSIDE the width/height, which is what gives the knob its room. */
   --rest: 2px;
   --width: 35px;
   --height: 0.9rem;
   --padding: 2px;
   --slider-size: calc(var(--height) - 2 * var(--padding));
-  --surface: hsl(var(--hue), 40%, 40%);      /* track when OFF  */
+  --surface: hsl(var(--hue), 40%, 40%);
   position: relative;
   display: inline-block;
   flex: none;
@@ -430,7 +363,7 @@
   cursor: pointer;
 }
 
-.switch:has(input:checked) { --surface: hsl(var(--hue), 81%, 69%); }   /* track when ON */
+.switch:has(input:checked) { --surface: hsl(var(--hue), 81%, 69%); }
 .switch:is(:hover, :focus-within):not(:has(input:disabled)) { --lift: calc(var(--rest) * 1.5); }
 .switch:has(input:disabled) { cursor: not-allowed; opacity: 0.6; }
 
@@ -458,7 +391,6 @@
   transform: translateX(calc(var(--width) - 2 * var(--padding) - var(--slider-size)));
 }
 
-/* A switch followed by its text. */
 .toggle-row {
   display: flex;
   align-items: center;
@@ -467,11 +399,6 @@
 }
 
 .toggle-row--inline { gap: 0.5rem; font-size: 0.95rem; }
-
-
-/* ==========================================================================
-   4. PANELS (cards)
-   ========================================================================== */
 
 .panel {
   display: flex;
@@ -496,14 +423,12 @@
   .panel { padding: 1.25rem 1.25rem 1.5rem; }
 }
 
-/* Dashed divider, as on the original site. */
 .divider {
   border: 1px dashed rgba(0, 0, 0, 0.22);
   border-radius: 4px;
   margin: 0.25rem 0;
 }
 
-/* Small status pill in the header. */
 .connection {
   display: inline-flex;
   align-items: center;
@@ -526,7 +451,6 @@
 
 .connection[data-connected="true"]  .connection__dot { background: #3fd37c; }
 .connection[data-connected="false"] .connection__dot { background: #ef4a3f; }
-
 
 .expiry { position: relative; }
 
@@ -629,13 +553,6 @@
 .expiry__footer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem; }
 .expiry__checked { font-size: 0.85rem; opacity: 0.7; }
 
-
-/* ==========================================================================
-   5. STATUS BANNER
-   The state is never shown by colour alone: it is also a big word and a glyph.
-   Each state only sets the card colour.
-   ========================================================================== */
-
 .status-panel[data-state="idle"]      { --card-bg: #e1eef1; }
 .status-panel[data-state="running"]   { --card-bg: hsl(50, 100%, 76%); }
 .status-panel[data-state="stopping"]  { --card-bg: hsl(30, 100%, 76%); }
@@ -646,7 +563,6 @@
 
 .status-panel { transition: background-color 0.3s ease; }
 
-/* Narrow screens: everything stacked. Wide screens: state left, details right. */
 .status-panel__body {
   display: grid;
   gap: 1rem;
@@ -659,7 +575,6 @@
   gap: 1rem;
 }
 
-/* The slim line between state and details: horizontal when stacked ... */
 .status-panel__divider {
   height: 2px;
   background: rgba(0, 0, 0, 0.15);
@@ -672,13 +587,11 @@
     column-gap: 2.5rem;
   }
 
-  /* ... and vertical next to each other (it stretches over the full height). */
   .status-panel__divider {
     align-self: stretch;
     height: auto;
   }
 
-  /* Four facts in one row, the activity bar below them. */
   .status-panel__details .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
@@ -715,7 +628,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Activity bar: moving stripes while rclone is working, otherwise a flat track. */
 .activity-bar {
   position: relative;
   overflow: hidden;
@@ -772,19 +684,11 @@
 
 .notice--warning { background: hsl(50, 100%, 80%); }
 
-
-/* ==========================================================================
-   6. MODE PICKER
-   Two selectable cards. The selected one looks pressed in and turns green.
-   ========================================================================== */
-
 .mode-picker {
   display: grid;
   gap: 0.9rem;
 }
 
-/* The Run card is stretched to the height of the Setup card; the two mode
-   cards share the extra space instead of leaving an empty gap. */
 .controls-panel .mode-picker {
   flex: 1;
   grid-auto-rows: 1fr;
@@ -792,16 +696,12 @@
 
 .mode-card { display: flex; cursor: pointer; }
 
-/* The radio button stays in the DOM for keyboards and screen readers. */
 .mode-card input {
   position: absolute;
   opacity: 0;
   pointer-events: none;
 }
 
-/* Card with a barely raised edge (1px, like the input fields). Selection is shown by
-   colour, border and the circle marker. Surface and side colours come from the shared
-   recipe at the top of this file; only the differences are set here. */
 .mode-card__body {
   --rest: 1px;
   --surface: hsl(var(--hue), 40%, 95%);
@@ -836,9 +736,8 @@
   border-color: hsl(var(--hue), 36%, 40%);
 }
 
-/* Text marker so the selection is not conveyed by colour alone. */
-.mode-card__title::before { content: "\25CB\00a0"; }                                  /* empty circle */
-.mode-card input:checked + .mode-card__body .mode-card__title::before { content: "\25CF\00a0"; }  /* filled circle */
+.mode-card__title::before { content: "\25CB\00a0"; }
+.mode-card input:checked + .mode-card__body .mode-card__title::before { content: "\25CF\00a0"; }
 
 .mode-picker:disabled .mode-card { cursor: not-allowed; opacity: 0.6; }
 
@@ -861,13 +760,6 @@
 .form-message[data-kind="error"]   { color: #a8201a; }
 .form-message[data-kind="success"] { color: var(--heading); }
 
-
-/* ==========================================================================
-   7. SETUP: form layout and exclusion list
-   ========================================================================== */
-
-/* The form fills the card, so its footer (message + buttons) sits at the bottom
-   and lines up with the bottom of the Run card next to it. */
 .setup-form {
   flex: 1;
   display: flex;
@@ -875,8 +767,6 @@
   gap: 1rem;
 }
 
-/* Two columns when there is room (folder / remote / size  |  exclusions),
-   one column when there is not. */
 .setup-grid {
   flex: 1;
   display: grid;
@@ -885,10 +775,7 @@
   align-items: start;
 }
 
-/* Message on the left, buttons on the right. */
 .form-footer {
-  /* The message always has its own line above the buttons. Side by side they would
-     wrap (or not) depending on which buttons are shown, and the card would change height. */
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -914,10 +801,6 @@
   overflow: hidden;
 }
 
-/* Pattern text and the remove button share the SAME font, size, line-height and
-   vertical padding. Their glyphs therefore sit on the same baseline no matter
-   which monospace font the system provides. The uneven padding centres
-   monospace glyphs optically (they sit high in their line box). */
 .exclusion-item__pattern,
 .exclusion-item__remove {
   display: flex;
@@ -951,15 +834,13 @@
 .exclusion-empty { font-size: 0.95rem; }
 
 .exclusion-add {
-  position: relative;          /* the plus button sits inside the text field */
+  position: relative;
   margin: 0.4rem 0 0.5rem;
 }
 
-.exclusion-add .field__input { padding-right: 3rem; }   /* the text never runs under the button */
+.exclusion-add .field__input { padding-right: 3rem; }
 
 .exclusion-add__button {
-  /* A strip on the right inside the field, divided from the text by a line,
-     like the x of an exclusion pill. Hovering only changes its background. */
   position: absolute;
   top: var(--border-width);
   right: var(--border-width);
@@ -981,18 +862,8 @@
 .exclusion-add__button:active:not(:disabled) { background: hsl(var(--hue), 70%, 70%); }
 .exclusion-add__button:focus-visible { outline: 2px solid var(--focus-color); outline-offset: -4px; }
 .exclusion-add__button:disabled { cursor: not-allowed; opacity: 0.5; }
-/* The field rises 0.5px on hover/focus; the strip rises with it. */
+
 .exclusion-add:has(.field__input:is(:hover, :focus):not(:disabled)) .exclusion-add__button { transform: translateY(-0.5px); }
-
-
-/* ==========================================================================
-   7b. FOLDER PAIRS
-   One card, two views in the SAME spot (the grid puts both into one cell):
-     data-view="overview"  the list of pairs     data-view="editor"  one pair's setup
-   The card is as tall as the taller view, so switching never makes it jump.
-   The pair list does not count towards that height (it is positioned inside
-   its frame), so adding pairs never grows the card: the list scrolls instead.
-   ========================================================================== */
 
 .setup-panel {
   display: grid;
@@ -1004,15 +875,8 @@
   min-width: 0;
 }
 
-/* Switching slides like a macOS page change: the new view comes in from the
-   right while the old one slides a bit to the left and fades (and the other way
-   round when going back). The panel clips what sticks out of the card.
-
-   visibility (not display) keeps the hidden view's size in the card's height, and
-   also removes it from the tab order and from screen readers. It is switched on
-   at once when a view appears, and only AFTER the slide when it disappears. */
 .setup-panel { overflow: hidden; --slide-duration: calc(var(--duration) * 2);
-  --leave-duration: calc(var(--duration) * 1.1); }   /* the view that leaves is quicker than the one that arrives */
+  --leave-duration: calc(var(--duration) * 1.1); }
 
 .setup-panel__view {
   transition:
@@ -1021,7 +885,6 @@
     visibility 0s linear 0s;
 }
 
-/* The overview waits at the left while the editor is shown ... */
 .setup-panel[data-view="editor"] > .pairs-view {
   transform: translateX(-60%);
   opacity: 0;
@@ -1031,7 +894,6 @@
   transition-delay: 0s, 0s, var(--leave-duration);
 }
 
-/* ... and the editor waits at the right while the overview is shown. */
 .setup-panel[data-view="overview"] > .setup-form {
   transform: translateX(60%);
   opacity: 0;
@@ -1040,8 +902,6 @@
   transition-duration: var(--leave-duration), var(--leave-duration), 0s;
   transition-delay: 0s, 0s, var(--leave-duration);
 }
-
-/* ---- Overview ---- */
 
 .pairs-view {
   display: flex;
@@ -1061,7 +921,7 @@
 .pair-list-frame {
   position: relative;
   flex: 1;
-  min-height: 14rem;   /* the card is never smaller than this, even when the editor is shorter */
+  min-height: 14rem;
 }
 
 .pair-list {
@@ -1070,14 +930,11 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  padding: 0.1rem 0.5rem 0.4rem 0.1rem;   /* room for the scrollbar and the row's lift */
+  padding: 0.1rem 0.5rem 0.4rem 0.1rem;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-/* Rows fade out at an edge when there is more to scroll to in that direction
-   (pairs_view.js sets data-fade-top / data-fade-bottom). At the very top or
-   bottom nothing fades, so the first and last row are fully visible. */
 .pair-list { --fade-top: 0px; --fade-bottom: 0px; }
 .pair-list[data-fade-top]    { --fade-top: 1.1rem; }
 .pair-list[data-fade-bottom] { --fade-bottom: 1.1rem; }
@@ -1106,7 +963,7 @@
 .pair-row {
   flex: none;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto auto;   /* text | state | power | edit | delete */
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
   align-items: center;
   gap: 0.4rem 0.9rem;
   padding: 0.6rem 0.8rem 0.6rem 1rem;
@@ -1114,11 +971,10 @@
   border: 2px solid rgba(0, 0, 0, 0.2);
   border-radius: 18px;
   corner-shape: squircle;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);   /* raised by 1px */
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
   transition: background-color var(--duration) var(--ease);
 }
 
-/* A pair that is switched off looks dimmed, but stays readable and editable. */
 .pair-row[data-state="inactive"] { background: rgba(0, 0, 0, 0.06); }
 .pair-row[data-state="inactive"] .pair-row__name,
 .pair-row[data-state="inactive"] .pair-row__paths { opacity: 0.6; }
@@ -1163,28 +1019,21 @@
 
 .pair-row__glyph { font-family: var(--font-mono); font-weight: 700; }
 
-/* Narrow card: the text on top, state, power, edit and delete buttons in a row below it. */
 @media (max-width: 600px) {
   .pair-row__body { grid-column: 1 / -1; }
   .pair-row__badge { justify-self: start; }
 }
 
-/* ---- Setup of one pair ---- */
-
-/* Back button and name on one row; the name takes all remaining width. */
 .setup-header {
   display: flex;
   align-items: center;
   gap: 0.9rem;
   padding-bottom: 1rem;
-  border-bottom: 2px solid rgba(0, 0, 0, 0.2);   /* divides the name from the settings */
+  border-bottom: 2px solid rgba(0, 0, 0, 0.2);
 }
 
 .setup-header .btn { flex: none; }
 
-/* The back button is a big square arrow, as tall as the name field next to it.
-   Its text is only for screen readers. While armed ("really discard?") it turns
-   red and a small label appears next to it. */
 .setup-header .setup-header__back { position: relative; width: 2.6rem; height: 2.6rem; }
 .setup-header__back > svg { width: 1.7em; height: 1.7em; }
 .setup-header__back[data-armed="true"]::after {
@@ -1203,8 +1052,6 @@
   pointer-events: none;
 }
 .setup-header__name { flex: 1; }
-
-/* ---- Confirmation popup (see confirm_dialog.js) ---- */
 
 .confirm-dialog {
   width: min(28rem, calc(100vw - 2rem));
@@ -1226,17 +1073,8 @@
   gap: 1rem;
 }
 
-/* The armed state of a two-step button (see two_step_button.js). */
 .btn[data-armed="true"] { --surface: hsl(4, 90%, 79%); --side: hsl(4, 40%, 47%); }
 
-
-/* ==========================================================================
-   8. LIVE LOG
-   Stays dark and monospace: log text must be easy to scan.
-   ========================================================================== */
-
-/* One screen tall: scrolled into view, the log fills the whole window.
-   (100vh first as a fallback for browsers without dynamic viewport units.) */
 .log-panel {
   height: calc(100vh - 2 * var(--gap));
   height: calc(100dvh - 2 * var(--gap));
@@ -1280,9 +1118,8 @@
 
 .log-line__time { color: #8d8d80; }
 .log-line__text { white-space: pre-wrap; overflow-wrap: anywhere; }
-.log-line__source { color: #8fb8ff; font-weight: 700; }   /* name of the folder pair */
+.log-line__source { color: #8fb8ff; font-weight: 700; }
 
-/* Severity colours. Errors and warnings also get a text marker (see log_view.js). */
 .log-line--app     .log-line__text { color: hsl(132, 81%, 69%); font-weight: 700; }
 .log-line--error   .log-line__text { color: #ff8a80; font-weight: 700; }
 .log-line--warning .log-line__text,

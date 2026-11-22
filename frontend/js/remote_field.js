@@ -1,8 +1,9 @@
 /**
- * remote_field.js
- * The "Remote" field of a folder pair: a dropdown with the remotes ("clouds")
- * that rclone knows, sitting inside the same field at the START, followed by a
- * text box for the folder on that remote.
+ * @file remote_field.js
+ * @brief The "Remote" field of a folder pair: a remote dropdown followed by a text box for the folder.
+ *
+ * The dropdown lists the remotes ("clouds") that rclone knows and sits inside the
+ * same field at the START.
  *
  *     [ mycloud:  v | Documents/Work                ]
  *       ^ dropdown     ^ optional folder on the remote
@@ -21,11 +22,17 @@
  * opening an old pair never silently changes it.
  */
 
-/** Shown in the menu next to a remote that rclone does not list. */
+/** @brief Shown in the menu next to a remote that rclone does not list. */
 const UNKNOWN_REMOTE_TYPE = "not in rclone config";
 
+/**
+ * @brief A remote dropdown plus folder text box that reads and writes rclone's remote text.
+ */
 export class RemoteField {
-  /** @param {HTMLElement} root The element with class "remote-field" (see index.html). */
+  /**
+   * @brief Look up the parts of the field and wire their events.
+   * @param {HTMLElement} root The element with class "remote-field" (see index.html).
+   */
   constructor(root) {
     this.root = root;
     this.button = root.querySelector(".remote-field__button");
@@ -33,11 +40,8 @@ export class RemoteField {
     this.menu = root.querySelector(".remote-field__menu");
     this.folder = root.querySelector(".remote-field__folder");
 
-    /** The remotes rclone has configured: [{name, type}], names without the colon. */
     this.remotes = [];
-    /** The chosen remote, without the colon. "" = none chosen yet. */
     this.name = "";
-    /** The items of the open-able menu, in the order they are shown. */
     this.options = [];
     this.isLocked = false;
 
@@ -46,22 +50,17 @@ export class RemoteField {
     this.button.addEventListener("click", () => (this.#isOpen() ? this.#close() : this.#open()));
     this.button.addEventListener("keydown", (event) => this.#handleButtonKey(event));
     this.menu.addEventListener("keydown", (event) => this.#handleMenuKey(event));
-    // A click anywhere else closes the menu.
     document.addEventListener("pointerdown", (event) => {
       if (this.#isOpen() && !this.root.contains(event.target)) this.#close();
     });
   }
 
-  // ------------------------------------------------------------------
-  // The value the rest of the app sees
-  // ------------------------------------------------------------------
-
-  /** "mycloud:", "mycloud:Documents" ... or "" while no remote is chosen. */
+  /** @brief The remote as rclone expects it: "mycloud:", "mycloud:Documents" ... or "" while none is chosen. */
   get value() {
     return this.name ? `${this.name}:${this.folder.value.trim()}` : "";
   }
 
-  /** Accepts the same text: everything before the first colon is the remote. */
+  /** @brief Show a remote given in rclone's text: everything before the first colon is the remote. */
   set value(text) {
     const clean = String(text ?? "").trim();
     const colon = clean.indexOf(":");
@@ -69,7 +68,6 @@ export class RemoteField {
       this.name = clean.slice(0, colon);
       this.folder.value = clean.slice(colon + 1);
     } else {
-      // Empty, or something that is not a remote yet: nothing is chosen, the text is kept visible.
       this.name = "";
       this.folder.value = clean;
     }
@@ -77,10 +75,12 @@ export class RemoteField {
     this.#render();
   }
 
+  /** @brief Whether the field is locked. */
   get disabled() {
     return this.isLocked;
   }
 
+  /** @brief Lock or unlock the field. */
   set disabled(isDisabled) {
     this.isLocked = isDisabled;
     this.root.toggleAttribute("data-disabled", isDisabled);
@@ -89,11 +89,12 @@ export class RemoteField {
   }
 
   /**
-   * Tell the field which remotes exist. Call it BEFORE setting `value`: when there
-   * is exactly one remote and none is chosen, that one is chosen for the user,
-   * and doing it in this order keeps the form from looking edited.
+   * @brief Tell the field which remotes exist.
+   * @param {{name: string, type: string}[]} remotes The remotes rclone has configured, names without the colon.
    *
-   * @param {{name: string, type: string}[]} remotes
+   * Call it before setting `value`: when there is exactly one remote and none is
+   * chosen, that one is chosen for the user, and doing it in this order keeps the
+   * form from looking edited.
    */
   setRemotes(remotes) {
     this.remotes = [...remotes];
@@ -102,14 +103,19 @@ export class RemoteField {
     this.#render();
   }
 
-  // ------------------------------------------------------------------
-
-  /** With a single remote there is nothing to decide, so do not make the user click. */
+  /**
+   * @brief Choose the remote automatically when there is only one.
+   *
+   * With a single remote there is nothing to decide, so the user does not have to click.
+   */
   #chooseTheOnlyRemote() {
     if (!this.name && this.remotes.length === 1) this.name = this.remotes[0].name;
   }
 
-  /** What the menu offers: every known remote, plus the chosen one if rclone does not know it. */
+  /**
+   * @brief List what the menu offers.
+   * @return {{name: string, type: string}[]} Every known remote, plus the chosen one if rclone does not know it.
+   */
   #choices() {
     const choices = [...this.remotes];
     if (this.name && !choices.some((remote) => remote.name === this.name)) {
@@ -118,7 +124,11 @@ export class RemoteField {
     return choices;
   }
 
-  /** Redraw the button and the menu from the current state. */
+  /**
+   * @brief Redraw the button and the menu from the current state.
+   *
+   * With nothing to choose from the button has no purpose; the hint under the field says what to do.
+   */
   #render() {
     const choices = this.#choices();
     this.options = choices.map((choice) => this.#createOption(choice));
@@ -127,11 +137,15 @@ export class RemoteField {
     this.buttonLabel.textContent = this.name
       ? `${this.name}:`
       : (choices.length > 0 ? "Select remote" : "No remotes");
-    // With nothing to choose from the button has no purpose; the hint under the field says what to do.
     this.button.disabled = this.isLocked || choices.length === 0;
     this.folder.disabled = this.isLocked;
   }
 
+  /**
+   * @brief Build the menu item of one remote.
+   * @param {{name: string, type: string}} choice The remote to show.
+   * @return {HTMLLIElement} The menu item.
+   */
   #createOption({ name, type }) {
     const item = document.createElement("li");
     item.className = "remote-field__option";
@@ -153,17 +167,30 @@ export class RemoteField {
     return item;
   }
 
+  /**
+   * @brief Pick a remote, close the menu and focus the folder box.
+   * @param {string} name The remote, without the colon.
+   *
+   * The folder is the next thing to fill in.
+   */
   #choose(name) {
     this.name = name;
     this.#render();
     this.#close();
-    this.folder.focus();  // the next thing to fill in is the folder
+    this.folder.focus();
   }
 
+  /**
+   * @brief Tell whether the menu is open.
+   * @return {boolean} True if the menu is visible.
+   */
   #isOpen() {
     return !this.menu.hidden;
   }
 
+  /**
+   * @brief Open the menu and focus the chosen remote.
+   */
   #open() {
     if (this.options.length === 0) return;
     this.menu.hidden = false;
@@ -172,11 +199,18 @@ export class RemoteField {
     selected.focus();
   }
 
+  /**
+   * @brief Close the menu.
+   */
   #close() {
     this.menu.hidden = true;
     this.button.setAttribute("aria-expanded", "false");
   }
 
+  /**
+   * @brief Open the menu on Up or Down.
+   * @param {KeyboardEvent} event The key event of the button.
+   */
   #handleButtonKey(event) {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
@@ -184,6 +218,10 @@ export class RemoteField {
     }
   }
 
+  /**
+   * @brief Handle Up/Down/Home/End to move, Enter or Space to pick, Escape to close.
+   * @param {KeyboardEvent} event The key event of the menu.
+   */
   #handleMenuKey(event) {
     const current = this.options.indexOf(document.activeElement);
     const move = (index) => this.options[(index + this.options.length) % this.options.length].focus();

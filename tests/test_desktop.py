@@ -1,4 +1,9 @@
-"""Tests for the desktop shell (no real window needed: pywebview is replaced by a stub)."""
+"""!
+@file test_desktop.py
+@brief Tests for the desktop shell.
+
+No real window is needed: pywebview is replaced by a stub.
+"""
 
 import sys
 import tempfile
@@ -16,6 +21,10 @@ from desktop.window import DesktopUnavailable, DesktopWindow
 
 
 class InstanceLockTests(unittest.TestCase):
+    """!
+    @brief Tests for the single-instance lock.
+    """
+
     def test_second_lock_is_refused_until_first_is_released(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "sub" / "app.lock"
@@ -28,6 +37,10 @@ class InstanceLockTests(unittest.TestCase):
 
 
 class LauncherEntryTests(unittest.TestCase):
+    """!
+    @brief Tests for the app-menu entry. A path with a space must be quoted in the Exec line.
+    """
+
     def test_install_and_uninstall(self):
         with tempfile.TemporaryDirectory() as folder:
             entry = LauncherEntry(Path("/opt/my app/run_desktop.py"), data_home=Path(folder))
@@ -37,7 +50,7 @@ class LauncherEntryTests(unittest.TestCase):
             text = desktop_file.read_text()
             self.assertIn(f"Icon={APP_ID}", text)
             self.assertIn(f"StartupWMClass={APP_ID}", text)
-            self.assertIn("'/opt/my app/run_desktop.py'", text)  # path with a space is quoted
+            self.assertIn("'/opt/my app/run_desktop.py'", text)
             self.assertTrue((Path(folder) / "icons/hicolor/512x512/apps" / f"{APP_ID}.png").is_file())
             self.assertTrue((Path(folder) / "icons/hicolor/scalable/apps" / f"{APP_ID}.svg").is_file())
 
@@ -50,24 +63,57 @@ class LauncherEntryTests(unittest.TestCase):
 
 
 class _Event(list):
+    """!
+    @brief A minimal pywebview event: ``+=`` registers a handler.
+    """
+
     def __iadd__(self, handler):
+        """!
+        @brief Register a handler.
+        @param handler The callable to remember.
+        @return This event.
+        """
         self.append(handler)
         return self
 
 
 class _FakeWindow:
+    """!
+    @brief A stand-in for the pywebview window.
+    """
+
     def __init__(self, answer=True):
+        """!
+        @brief Create the window stub.
+        @param answer What the confirmation dialog answers.
+        """
         self.events = types.SimpleNamespace(closing=_Event())
         self.answer = answer
         self.asked = False
 
     def create_confirmation_dialog(self, title, message):
+        """!
+        @brief Record that the user was asked and answer.
+        @param title The dialog title.
+        @param message The dialog text.
+        @return The preset answer.
+        """
         self.asked = True
         return self.answer
 
 
 class DesktopWindowTests(unittest.TestCase):
+    """!
+    @brief Tests for the native window wrapper, with pywebview replaced by a stub.
+    """
+
     def _run_with_fake_webview(self, running, answer=True):
+        """!
+        @brief Run the window with a stubbed pywebview.
+        @param running Whether a sync counts as running.
+        @param answer What the confirmation dialog answers.
+        @return A tuple (the fake webview module, the fake window).
+        """
         window = _FakeWindow(answer)
         fake = types.SimpleNamespace(
             create_window=mock.Mock(return_value=window), start=mock.Mock()

@@ -1,5 +1,7 @@
-"""
-Unit tests for folder pairs: how pairs relate to each other and the store that keeps the list.
+"""!
+@file test_pairs.py
+@brief Unit tests for folder pairs: how pairs relate to each other and the store that keeps the list.
+
 No server and no rclone are involved.
 """
 
@@ -12,19 +14,25 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from backend.errors import PairNotFoundError, SetupError          # noqa: E402
-from backend.pair_relations import (                               # noqa: E402
+from backend.errors import PairNotFoundError, SetupError
+from backend.pair_relations import (
     RelationKind,
     automatic_exclusions,
     find_conflict,
     lies_inside,
     relate,
 )
-from backend.pairs import FolderPairStore                          # noqa: E402
-from backend.setup import PairSetup                                # noqa: E402
+from backend.pairs import FolderPairStore
+from backend.setup import PairSetup
 
 
 def pair(local, remote):
+    """!
+    @brief Build a PairSetup from a local folder and a remote.
+    @param local The local folder path.
+    @param remote The remote folder, e.g. "onedrive:Docs".
+    @return The new setup.
+    """
     return PairSetup(local_path=local, remote=remote)
 
 
@@ -32,12 +40,24 @@ OUTER = pair("/data/docs", "onedrive:Docs")
 
 
 class RelationTests(unittest.TestCase):
+    """!
+    @brief Tests for how two pair setups relate (same, nested, unrelated).
+
+    A shared name PREFIX is not nesting. Nesting is detected both ways round, as the
+    same relation seen from the inner pair. Sharing only the remote folder or only
+    the local folder is a conflict too.
+    """
     def kind(self, first, second):
+        """!
+        @brief Get the relation kind of two setups.
+        @param first The first setup.
+        @param second The second setup.
+        @return The RelationKind of ``relate(first, second)``.
+        """
         return relate(first, second).kind
 
     def test_unrelated_pairs_are_separate(self):
         self.assertIs(self.kind(OUTER, pair("/data/music", "onedrive:Music")), RelationKind.SEPARATE)
-        # A shared name PREFIX is not nesting.
         self.assertIs(self.kind(OUTER, pair("/data/docs2", "onedrive:Docs2")), RelationKind.SEPARATE)
 
     def test_different_remotes_are_separate_clouds(self):
@@ -57,7 +77,6 @@ class RelationTests(unittest.TestCase):
         self.assertIs(relation.kind, RelationKind.NESTED)
         self.assertFalse(relation.first_is_inner)
         self.assertEqual(relation.inner_folder, ("photos", "2020"))
-        # The other way round it is the same relation, seen from the inner pair.
         self.assertTrue(relate(inner, OUTER).first_is_inner)
 
     def test_the_whole_drive_contains_every_folder(self):
@@ -68,10 +87,8 @@ class RelationTests(unittest.TestCase):
         self.assertIn("Both must match", reason)
 
     def test_touching_on_one_side_only_conflicts(self):
-        # The same remote folder from two local folders ...
         self.assertIn("remote folders overlap", find_conflict(OUTER, pair("/data/other", "onedrive:Docs")))
         self.assertIn("remote folders overlap", find_conflict(OUTER, pair("/data/other", "onedrive:Docs/Sub")))
-        # ... and the same local folder with two remote folders.
         self.assertIn("local folders overlap", find_conflict(OUTER, pair("/data/docs", "onedrive:Other")))
         self.assertIn("local folders overlap", find_conflict(OUTER, pair("/data/docs/sub", "onedrive:Other")))
 
@@ -98,6 +115,12 @@ class RelationTests(unittest.TestCase):
 
 
 class AutomaticExclusionTests(unittest.TestCase):
+    """!
+    @brief Tests for the exclusions an outer pair gets for its inner pairs.
+
+    The top pair skips both inner folders (rclone would otherwise sync them), the
+    middle one skips only the deepest.
+    """
     def test_the_outer_pair_skips_each_inner_folder(self):
         others = [pair("/data/docs/photos", "onedrive:Docs/Photos"),
                   pair("/data/docs/work/old", "onedrive:docs/work/old"),
@@ -119,13 +142,25 @@ class AutomaticExclusionTests(unittest.TestCase):
     def test_a_pair_in_the_middle_is_both_outer_and_inner(self):
         middle = pair("/data/docs/work", "onedrive:Docs/work")
         deepest = pair("/data/docs/work/old", "onedrive:Docs/work/old")
-        # The top pair skips both (rclone would otherwise sync them), the middle one skips the deepest.
         self.assertEqual(automatic_exclusions(OUTER, [middle, deepest]), ("/work/", "/work/old/"))
         self.assertEqual(automatic_exclusions(middle, [OUTER, deepest]), ("/old/",))
 
 
 class FolderPairStoreTests(unittest.TestCase):
+    """!
+    @brief Tests for the store that keeps the list of pairs in pairs.json.
+
+    The tests cover create/read, validation, clashing folders (the error says WHICH
+    pair it clashes with; a pair never clashes with itself, so keeping its own name
+    when saving is fine), update/switch/delete, reading damaged files from disk
+    (no name, invalid value, no remote chosen) and converting the single setup of
+    older versions. That conversion is saved at once, so the id stays the same, and
+    the old file is left alone.
+    """
     def setUp(self):
+        """!
+        @brief Create a temporary folder and an empty store in it.
+        """
         self._folder = tempfile.TemporaryDirectory()
         self.addCleanup(self._folder.cleanup)
         self.folder = Path(self._folder.name)
@@ -133,6 +168,10 @@ class FolderPairStoreTests(unittest.TestCase):
         self.store = self.new_store()
 
     def new_store(self):
+        """!
+        @brief Open a store on the test pairs file, as the app does at start-up.
+        @return A new FolderPairStore.
+        """
         return FolderPairStore(
             self.pairs_file,
             legacy_paths=[self.folder / "setup.json", self.folder / "settings.json"],
@@ -140,11 +179,15 @@ class FolderPairStoreTests(unittest.TestCase):
 
     @staticmethod
     def data(name="Docs", **overrides):
+        """!
+        @brief Build the dictionary the UI sends for a new pair.
+        @param name The pair name; also used for the folder names.
+        @param overrides Fields that replace the defaults.
+        @return The pair data.
+        """
         data = {"name": name, "local_path": f"/data/{name}", "remote": f"onedrive:{name}"}
         data.update(overrides)
         return data
-
-    # --- create / read ---
 
     def test_a_new_store_is_empty_and_writes_nothing(self):
         self.assertEqual(self.store.all(), [])
@@ -171,8 +214,6 @@ class FolderPairStoreTests(unittest.TestCase):
         self.assertEqual(reloaded.setup.exclusions, ("*.iso",))
         self.assertFalse(reloaded.enabled)
 
-    # --- validation ---
-
     def test_invalid_names_are_rejected(self):
         for bad in ("", "   ", "x" * 41, "two\nlines", None, 5):
             with self.assertRaises(SetupError, msg=repr(bad)):
@@ -183,15 +224,12 @@ class FolderPairStoreTests(unittest.TestCase):
         first = self.store.create(self.data("Docs"))
         with self.assertRaises(SetupError):
             self.store.create(self.data("docs"))
-        # Keeping its own name when saving is of course fine.
         self.store.update(first.id, self.data("DOCS"))
 
     def test_invalid_setup_values_are_rejected(self):
         for bad in ({"max_size": "huge"}, {"remote": "nocolon"}, {"local_path": "relative/path"}):
             with self.assertRaises(SetupError, msg=str(bad)):
                 self.store.create(self.data(**bad))
-
-    # --- folders that clash ---
 
     def test_clashing_pairs_are_refused_and_nested_ones_are_fine(self):
         self.store.create(self.data("Docs"))
@@ -201,7 +239,7 @@ class FolderPairStoreTests(unittest.TestCase):
                       self.data("Shifted", local_path="/data/Docs/a", remote="onedrive:Docs/b")):
             with self.assertRaises(SetupError, msg=clash["name"]) as caught:
                 self.store.create(clash)
-            self.assertIn("'Docs'", str(caught.exception))        # says WHICH pair it clashes with
+            self.assertIn("'Docs'", str(caught.exception))
         self.assertEqual([pair.name for pair in self.store.all()], ["Docs"])
 
         self.store.create(self.data("Inner", local_path="/data/Docs/a", remote="onedrive:Docs/a"))
@@ -210,7 +248,7 @@ class FolderPairStoreTests(unittest.TestCase):
     def test_an_update_may_not_clash_but_may_keep_its_own_folders(self):
         first = self.store.create(self.data("A"))
         second = self.store.create(self.data("B"))
-        self.store.update(first.id, self.data("A", max_size="2G"))          # itself is no clash
+        self.store.update(first.id, self.data("A", max_size="2G"))
         with self.assertRaises(SetupError):
             self.store.update(second.id, self.data("B", local_path="/data/A", remote="onedrive:A"))
         self.assertEqual(self.store.get(second.id).setup.local_path, "/data/B")
@@ -220,8 +258,6 @@ class FolderPairStoreTests(unittest.TestCase):
         self.store.set_enabled(first.id, False)
         with self.assertRaises(SetupError):
             self.store.create(self.data("B", local_path="/data/A", remote="onedrive:A"))
-
-    # --- update / switch / delete ---
 
     def test_update_keeps_id_and_switch(self):
         pair = self.store.create(self.data())
@@ -262,14 +298,12 @@ class FolderPairStoreTests(unittest.TestCase):
             with self.assertRaises(PairNotFoundError):
                 action()
 
-    # --- reading files from disk ---
-
     def test_broken_entries_are_skipped_not_fatal(self):
         self.pairs_file.write_text(json.dumps({"pairs": [
             {"id": "aaaa1111", "name": "Good", "local_path": "/data/docs", "remote": "mycloud:"},
-            {"id": "bbbb2222", "name": "", "local_path": "/data/x", "remote": "mycloud:x"},   # no name
-            {"id": "cccc3333", "name": "Bad size", "remote": "mycloud:y", "max_size": "huge"},  # invalid value
-            {"id": "dddd4444", "name": "No remote", "local_path": "/data/z"},                # no remote chosen
+            {"id": "bbbb2222", "name": "", "local_path": "/data/x", "remote": "mycloud:x"},
+            {"id": "cccc3333", "name": "Bad size", "remote": "mycloud:y", "max_size": "huge"},
+            {"id": "dddd4444", "name": "No remote", "local_path": "/data/z"},
             "not an object",
         ]}))
         self.assertEqual([pair.name for pair in self.new_store().all()], ["Good"])
@@ -288,8 +322,6 @@ class FolderPairStoreTests(unittest.TestCase):
         self.assertEqual(len(set(ids)), 3)
         self.assertEqual(ids[0], "same")
 
-    # --- converting the single setup of older versions ---
-
     def test_an_old_setup_file_becomes_the_first_pair(self):
         old_file = self.folder / "setup.json"
         old_file.write_text(json.dumps({
@@ -303,7 +335,6 @@ class FolderPairStoreTests(unittest.TestCase):
         self.assertEqual(pair.setup.exclusions, ("*.iso",))
         self.assertTrue(pair.enabled)
 
-        # The conversion is saved at once (so the id stays the same) and the old file is left alone.
         self.assertTrue(self.pairs_file.exists())
         self.assertTrue(old_file.exists())
         self.assertEqual(self.new_store().all(), [pair])
