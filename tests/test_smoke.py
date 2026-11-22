@@ -407,6 +407,47 @@ class PairApiTests(ServerTestCase):
         self.assertEqual(list(self.pairs_by_name()), ["Docs"])
 
 
+class BundledFontTests(ServerTestCase):
+    """The Itim font ships with the app, so the page needs nothing from the internet."""
+
+    def fetch(self, path):
+        """!
+        @brief Fetch a file without parsing it.
+        @param path The URL path.
+        @return A tuple (status, headers dict, body bytes).
+        """
+        connection = http.client.HTTPConnection("127.0.0.1", self.app.port, timeout=5)
+        connection.request("GET", path)
+        response = connection.getresponse()
+        body = response.read()
+        headers = dict(response.getheaders())
+        connection.close()
+        return response.status, headers, body
+
+    def test_the_font_is_served_as_a_font(self):
+        status, headers, body = self.fetch("/fonts/Itim-Regular.ttf")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "font/ttf")
+        self.assertEqual(body[:4], b"\x00\x01\x00\x00")
+
+    def test_the_license_is_shipped_with_the_font(self):
+        status, _, body = self.fetch("/fonts/OFL.txt")
+        self.assertEqual(status, 200)
+        self.assertIn(b"SIL OPEN FONT LICENSE", body)
+
+    def test_the_stylesheet_loads_the_font_from_this_server(self):
+        _, _, body = self.fetch("/css/base.css")
+        css = body.decode("utf-8")
+        self.assertIn("../fonts/Itim-Regular.ttf", css)
+        self.assertNotIn("http", css)
+
+    def test_the_policy_allows_no_outside_host(self):
+        _, headers, _ = self.fetch("/index.html")
+        policy = headers["Content-Security-Policy"]
+        self.assertNotIn("http", policy)
+        self.assertIn("default-src 'self'", policy)
+
+
 class RemoteListTests(ServerTestCase):
     """!
     @brief Tests for the remotes rclone knows, which the setup form offers in its dropdown.

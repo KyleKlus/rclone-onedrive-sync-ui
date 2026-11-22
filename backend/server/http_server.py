@@ -6,9 +6,9 @@ All real work is delegated to ``ApiRouter`` (API calls) or to the frontend
 folder (static files). Every request passes the ``LocalhostGuard`` first.
 
 The MIME types are registered explicitly so browsers get the right type even
-if the OS registry is wrong. The page only loads its own files, except the Itim
-font (CSS + font files) from the jsDelivr CDN (_FONT_CDN); scripts can only come
-from this server (_CONTENT_SECURITY_POLICY). _MAX_BODY_BYTES limits the request body size.
+if the OS registry is wrong. The page loads nothing from outside: styles, scripts and
+the bundled Itim font all come from this server (_CONTENT_SECURITY_POLICY).
+_MAX_BODY_BYTES limits the request body size.
 """
 
 import json
@@ -26,14 +26,11 @@ mimetypes.add_type("text/css", ".css")
 mimetypes.add_type("application/manifest+json", ".webmanifest")
 mimetypes.add_type("image/svg+xml", ".svg")
 mimetypes.add_type("image/x-icon", ".ico")
+mimetypes.add_type("font/ttf", ".ttf")
 
 _MAX_BODY_BYTES = 64 * 1024
 
-_FONT_CDN = "https://cdn.jsdelivr.net"
-_CONTENT_SECURITY_POLICY = (
-    f"default-src 'self'; style-src 'self' {_FONT_CDN}; "
-    f"font-src 'self' {_FONT_CDN}; frame-ancestors 'none'"
-)
+_CONTENT_SECURITY_POLICY = "default-src 'self'; frame-ancestors 'none'"
 
 
 @dataclass(frozen=True)
