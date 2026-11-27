@@ -7,7 +7,9 @@
     python run_desktop.py --install-launcher  add it to the app menu / dock (once)
     python run_desktop.py --uninstall-launcher
 
-Closing the window quits the app. For the browser version use run.py.
+Closing the window keeps the app running in the system tray; "Quit" in the tray
+menu ends it. Without a tray icon, closing the window quits. For the browser
+version use run.py.
 """
 
 import argparse
@@ -19,6 +21,8 @@ from backend.app import Application
 from desktop.identity import ICON_PNG
 from desktop.launcher_entry import LauncherEntry
 from desktop.single_instance import InstanceLock
+from desktop.sync_toggle import SyncToggle
+from desktop.tray import TrayIcon
 from desktop.window import DesktopUnavailable, DesktopWindow
 
 
@@ -54,7 +58,7 @@ def manage_launcher(arguments: argparse.Namespace) -> int:
 
 def run_app() -> int:
     """!
-    @brief Start the server and show the native window until it is closed.
+    @brief Start the server and show the native window and tray icon until the app is quit.
     @return The process exit code (1 if already running or no window is possible, else 0).
 
     The server uses port 0, so the OS picks a free port and the window can never
@@ -62,17 +66,23 @@ def run_app() -> int:
     """
     lock = InstanceLock(config.DATA_DIR / "app.lock")
     if not lock.acquire():
-        print("Rclone Sync is already running (look for its window or dock icon).")
+        print("Rclone Sync is already running (look for its tray icon or window).")
         return 1
 
     try:
         app = Application(port=0)
         threading.Thread(target=app.run, name="web-server", daemon=True).start()
 
+        tray = TrayIcon(
+            icon_path=ICON_PNG,
+            sync_toggle=SyncToggle(app.sync_manager),
+            report_problem=lambda text: app.log_buffer.append(text, level="error"),
+        )
         window = DesktopWindow(
             url=f"http://{config.HOST}:{app.port}",
             icon_path=ICON_PNG,
             is_sync_running=app.sync_manager.is_busy,
+            tray=tray,
         )
         try:
             window.run()

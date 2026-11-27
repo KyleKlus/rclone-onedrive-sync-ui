@@ -7,5 +7,8 @@ It wraps the existing backend, it never changes it:
     identity.py        name / icon / id the desktop environment knows the app by
     single_instance.py makes sure only one copy runs at a time
     window.py          the native window (pywebview) around the web UI
+    tray.py            the system tray icon (pystray) and its menu
+    sync_toggle.py     what the tray's Start / Stop sync entry does
+    status_icons.py    the tray icon in the colour of the sync state
     launcher_entry.py  installs the app-menu entry that gives the dock its icon
 """

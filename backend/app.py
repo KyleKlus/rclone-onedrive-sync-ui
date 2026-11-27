@@ -15,6 +15,7 @@ from .server.http_server import WebServer
 from .command.log_buffer import LogBuffer
 from .command.rclone import FilterFiles, RcloneCommandBuilder, RcloneRunner
 from .command.remotes import RemoteCatalog
+from .last_mode import LastModeStore
 from .pairs import FolderPairStore
 from .remote_health import RemoteHealth, RemoteHealthMonitor
 from .sync_manager import SyncManager
@@ -25,7 +26,8 @@ class Application:
     @brief Builds and runs the whole backend.
 
     Attributes: sync_manager, remote_monitor and web_server are the three
-    long-living parts that run() and shutdown() control.
+    long-living parts that run() and shutdown() control. log_buffer is the live
+    log, which the desktop shell may also write to.
     """
 
     def __init__(
@@ -50,7 +52,7 @@ class Application:
         """
         data_dir.mkdir(parents=True, exist_ok=True)
 
-        log_buffer = LogBuffer(config.LOG_BUFFER_CAPACITY)
+        self.log_buffer = log_buffer = LogBuffer(config.LOG_BUFFER_CAPACITY)
         pair_store = FolderPairStore(
             data_dir / "pairs.json",
             legacy_paths=[data_dir / "setup.json", data_dir / "settings.json"],
@@ -67,6 +69,7 @@ class Application:
             runner_factory=RcloneRunner,
             rclone_binary=rclone_binary,
             remote_health=remote_health,
+            last_mode_store=LastModeStore(data_dir / "last_mode.txt"),
         )
         self.remote_monitor = RemoteHealthMonitor(
             health=remote_health,

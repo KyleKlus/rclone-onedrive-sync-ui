@@ -30,6 +30,7 @@ from typing import Callable, Optional
 from .command.log_buffer import LogBuffer
 from .command.rclone import FilterFiles, RcloneCommandBuilder, RcloneRunner
 from .errors import SyncBusyError, SyncConfigError
+from .last_mode import LastModeStore
 from .models import RunOptions, SyncMode, SyncState
 from .pair_job import STOPPED_MESSAGE, PairJob, describe_run, idle_runtime
 from .pair_relations import automatic_exclusions, find_conflict, lies_inside
@@ -55,6 +56,7 @@ class SyncManager:
         runner_factory: Callable[[], RcloneRunner],
         rclone_binary: str,
         remote_health: RemoteHealth,
+        last_mode_store: LastModeStore,
     ) -> None:
         """!
         @brief Create a manager in the IDLE state.
@@ -65,6 +67,7 @@ class SyncManager:
         @param runner_factory Called once per job, so every job gets its own runner.
         @param rclone_binary Name or path of the rclone executable.
         @param remote_health Shared record of which remote logins have expired.
+        @param last_mode_store Remembers the mode of the last real run.
         """
         self._pair_store = pair_store
         self._log = log_buffer
@@ -73,6 +76,8 @@ class SyncManager:
         self._runner_factory = runner_factory
         self._rclone_binary = rclone_binary
         self._remote_health = remote_health
+        self._last_mode_store = last_mode_store
+        self._last_mode = last_mode_store.load()
 
         self._lock = threading.Lock()
         self._state = SyncState.IDLE
@@ -105,6 +110,24 @@ class SyncManager:
                 "rclone_available": rclone_available,
                 "pairs": described_pairs,
             }
+
+    @property
+    def state(self) -> SyncState:
+        """!
+        @brief Get the overall state without building the full status().
+        @return The current state.
+        """
+        with self._lock:
+            return self._state
+
+    @property
+    def last_mode(self) -> SyncMode:
+        """!
+        @brief Get the mode of the last real run (dry runs do not count).
+        @return The mode; two-way sync if there was no run yet.
+        """
+        with self._lock:
+            return self._last_mode
 
     def is_busy(self) -> bool:
         """!
@@ -145,6 +168,21 @@ class SyncManager:
             self._jobs = {pair.id: self._create_job(pair, options, all_pairs) for pair in pairs}
             for job in self._jobs.values():
                 job.start()
+            if not dry_run:
+                self._remember_mode_locked(mode)
+
+    def _remember_mode_locked(self, mode: SyncMode) -> None:
+        """!
+        @brief Keep the mode of a real run. The caller must hold the lock.
+        @param mode The mode that was started.
+
+        Failing to save it must not disturb the run, so it is only logged.
+        """
+        self._last_mode = mode
+        try:
+            self._last_mode_store.save(mode)
+        except OSError as error:
+            self._log.append(f"Could not remember the sync mode: {error}", level="warning")
 
     def stop(self) -> bool:
         """!

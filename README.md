@@ -34,6 +34,32 @@ python run_desktop.py --install-launcher   # once: adds it to your app menu
 
 The window version needs pywebview and the WebKitGTK library. If something is missing, the app prints what to install.
 
+### The tray icon
+
+The window version also puts an icon in your system tray:
+
+| Menu entry | What it does |
+|------------|--------------|
+| **Open dashboard** | Brings the window back. |
+| **Start sync / Stop sync** | Starts a sync in the mode you used last (shown in brackets, two-way at first), or stops the running one. Dry runs do not change that mode, and a sync started here is never a dry run. |
+| **Quit** | Ends the app. If a sync is running, you are asked first. |
+
+The colour of the icon shows the state:
+
+| Colour | Meaning |
+|--------|---------|
+| **Green** | Ready for a sync (also after you stopped one), or the last sync went well. |
+| **Yellow** | Syncing, or stopping. |
+| **Red** | The last sync failed. It stays red until the next sync starts. |
+
+While the tray icon is there, closing the window only hides it. On Ubuntu, install what the icon needs with:
+
+```
+sudo apt install python3-pystray python3-pil gir1.2-ayatanaappindicator3-0.1
+```
+
+Without these the app works as before, and closing the window quits it.
+
 ## How to use it
 
 ### 1. Add a folder pair

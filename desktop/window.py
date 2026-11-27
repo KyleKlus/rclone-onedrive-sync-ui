@@ -10,9 +10,10 @@ browser mode in ``run.py``) keeps working, and the user gets a clear message.
 """
 
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from .identity import APP_ID, APP_NAME
+from .tray import TrayIcon, TrayUnavailable
 
 WINDOW_SIZE = (1280, 900)
 WINDOW_MIN_SIZE = (720, 600)
@@ -38,24 +39,33 @@ class DesktopUnavailable(Exception):
 
 class DesktopWindow:
     """!
-    @brief Opens the UI in a native window and blocks until the window is closed.
+    @brief Opens the UI in a native window and blocks until the app is quit.
+
+    With a tray icon, closing the window only hides it and "Quit" in the tray
+    ends the app. Without one, closing the window ends the app.
     """
 
-    def __init__(self, url: str, icon_path: Path, is_sync_running: Callable[[], bool]) -> None:
+    def __init__(self, url: str, icon_path: Path, is_sync_running: Callable[[], bool],
+                 tray: Optional[TrayIcon] = None) -> None:
         """!
         @brief Remember what to show; no window is created yet.
         @param url The address of the web UI.
         @param icon_path The PNG used as the window icon.
-        @param is_sync_running Returns True while a sync runs, so closing can be confirmed.
+        @param is_sync_running Returns True while a sync runs, so quitting can be confirmed.
+        @param tray The tray icon, or None for a plain window.
         """
         self._url = url
         self._icon_path = icon_path
         self._is_sync_running = is_sync_running
+        self._tray = tray
         self._window = None
+        self._hide_on_close = False
+        self._quit_requested = False
+        self._minimized = False
 
     def run(self) -> None:
         """!
-        @brief Show the window and block until it is closed.
+        @brief Show the window and block until the app is quit.
         @throws DesktopUnavailable If pywebview is not installed.
 
         Must be called from the main thread (GUI rule).
@@ -71,7 +81,69 @@ class DesktopWindow:
             min_size=WINDOW_MIN_SIZE,
         )
         self._window.events.closing += self._on_closing
-        webview.start(icon=str(self._icon_path))
+        self._start_tray()
+        try:
+            webview.start(icon=str(self._icon_path))
+        finally:
+            if self._tray is not None:
+                self._tray.stop()
+
+    def open(self) -> None:
+        """!
+        @brief Bring the dashboard to the front, whether hidden, minimized or covered.
+
+        With GTK (Linux) the native window's present() does all of that and keeps a
+        maximized window maximized. It must run on the GTK main thread, which is
+        where the tray menu calls us. Elsewhere pywebview's own methods are used;
+        restore() only for a minimized window, as it can also un-maximize one.
+
+        Never call hide() right before show() here: pywebview's GTK code runs
+        the hide later than the show, so the window would stay hidden.
+        """
+        present = getattr(getattr(self._window, "native", None), "present", None)
+        if present is not None:
+            present()
+            return
+        self._window.show()
+        if self._minimized:
+            self._window.restore()
+
+    def quit(self) -> None:
+        """!
+        @brief End the app, asking first if a sync is running.
+        """
+        self._quit_requested = True
+        if self._is_sync_running():
+            self.open()  # the question must not come from an invisible window
+        self._window.destroy()
+
+    def _start_tray(self) -> None:
+        """!
+        @brief Start the tray icon, if there is one, and only then hide on close.
+        """
+        if self._tray is None:
+            return
+        try:
+            self._tray.start(on_open=self.open, on_quit=self.quit)
+        except TrayUnavailable as problem:
+            print(problem)
+            print("Continuing without a tray icon: closing the window quits the app.")
+            return
+        self._hide_on_close = True
+        self._window.events.minimized += self._on_minimized
+        self._window.events.restored += self._on_restored
+
+    def _on_minimized(self) -> None:
+        """!
+        @brief Remember that the window is minimized.
+        """
+        self._minimized = True
+
+    def _on_restored(self) -> None:
+        """!
+        @brief Remember that the window is no longer minimized.
+        """
+        self._minimized = False
 
     @staticmethod
     def _import_webview():
@@ -105,10 +177,23 @@ class DesktopWindow:
 
     def _on_closing(self):
         """!
-        @brief Ask before closing while a sync runs.
-        @return False to cancel the close, True to allow it.
+        @brief Decide what closing the window means.
+        @return False to keep the app running, True to let the window close (which quits).
+        """
+        if self._hide_on_close and not self._quit_requested:
+            self._window.hide()
+            return False
+        allowed = self._confirm_quit()
+        if not allowed:
+            self._quit_requested = False
+        return allowed
 
-        If the dialog itself fails the close is allowed, so the user is never
+    def _confirm_quit(self) -> bool:
+        """!
+        @brief Ask before quitting while a sync runs.
+        @return True if the app may quit.
+
+        If the dialog itself fails quitting is allowed, so the user is never
         trapped in the window.
         """
         if not self._is_sync_running():
@@ -116,7 +201,7 @@ class DesktopWindow:
         try:
             return self._window.create_confirmation_dialog(
                 "Sync is running",
-                "A sync is still running. Closing the window will stop it.\n\nClose anyway?",
+                "A sync is still running. Quitting will stop it.\n\nQuit anyway?",
             )
         except Exception:
             return True

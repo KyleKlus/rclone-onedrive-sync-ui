@@ -740,6 +740,16 @@ class SyncTests(ServerTestCase):
         self.assertNotIn("--filters-file", log)
         self.assertIn("Copied (new)", log)
 
+    def test_only_real_runs_change_the_remembered_mode(self):
+        self.create_pair()
+        self.request("POST", "/api/sync", {"mode": "download", "dry_run": True})
+        self.wait_for_state({"succeeded"})
+        self.assertEqual(self.app.sync_manager.last_mode.value, "bisync")
+        self.request("POST", "/api/sync", {"mode": "download"})
+        self.wait_for_state({"succeeded"})
+        self.assertEqual(self.app.sync_manager.last_mode.value, "download")
+        self.assertEqual((self.workdir / "data" / "last_mode.txt").read_text(), "download")
+
     def test_dry_run_flag(self):
         self.create_pair()
         self.request("POST", "/api/sync", {"mode": "download", "dry_run": True})
